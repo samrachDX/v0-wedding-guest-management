@@ -4,19 +4,17 @@ import { useEffect, useState } from "react"
 import Layout from "@/components/Layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { Users, UserCheck, Clock, UserX, Gift, DollarSign } from "lucide-react"
+import { Users, Gift, DollarSign } from "lucide-react"
 
 interface DashboardStats {
   guests: {
     total: number
-    confirmed: number
-    pending: number
-    notAttending: number
     recent: any[]
   }
   gifts: {
     total: number
-    totalMoney: number
+    totalUSD: number
+    totalKHR: number
     recent: any[]
   }
 }
@@ -60,7 +58,7 @@ export default function DashboardPage() {
         <h1 className="text-3xl font-bold text-gray-900">{t("dashboard.title")}</h1>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("dashboard.totalGuests")}</CardTitle>
@@ -68,36 +66,6 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats?.guests.total || 0}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("dashboard.confirmed")}</CardTitle>
-              <UserCheck className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats?.guests.confirmed || 0}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("dashboard.pending")}</CardTitle>
-              <Clock className="h-4 w-4 text-yellow-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{stats?.guests.pending || 0}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("dashboard.notAttending")}</CardTitle>
-              <UserX className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{stats?.guests.notAttending || 0}</div>
             </CardContent>
           </Card>
 
@@ -113,11 +81,21 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("dashboard.totalMoney")}</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Money (USD)</CardTitle>
               <DollarSign className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">${stats?.gifts.totalMoney || 0}</div>
+              <div className="text-2xl font-bold text-green-600">${stats?.gifts.totalUSD || 0}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Money (KHR)</CardTitle>
+              <DollarSign className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">៛{stats?.gifts.totalKHR || 0}</div>
             </CardContent>
           </Card>
         </div>
@@ -138,14 +116,10 @@ export default function DashboardPage() {
                     </div>
                     <span
                       className={`px-2 py-1 rounded-full text-xs ${
-                        guest.attendanceStatus === "Confirmed"
-                          ? "bg-green-100 text-green-800"
-                          : guest.attendanceStatus === "Pending"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-red-100 text-red-800"
+                        guest.guestType === "Groom Side" ? "bg-blue-100 text-blue-800" : "bg-pink-100 text-pink-800"
                       }`}
                     >
-                      {guest.attendanceStatus}
+                      {guest.guestType}
                     </span>
                   </div>
                 ))}
