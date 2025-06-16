@@ -63,12 +63,13 @@ export default function GiftsPage() {
       const response = await fetch("/api/gifts")
       if (response.ok) {
         const data = await response.json()
-        console.log("Fetched gifts:", data) // Debug log
+        console.log("Fetched gifts in frontend:", data) // Debug log
         setGifts(data)
       } else {
         throw new Error("Failed to fetch gifts")
       }
     } catch (error) {
+      console.error("Fetch gifts error:", error)
       toast({
         title: t("common.error"),
         description: "Failed to load gifts",
@@ -210,11 +211,36 @@ export default function GiftsPage() {
     return type
   }
 
-  const getLocalizedPaymentMethod = (method: string) => {
+  const getLocalizedPaymentMethod = (method: string | undefined) => {
+    if (!method) return "-"
+
     if (language === "km") {
       return method === "Cash" ? "សាច់ប្រាក់" : "ខេអាកូអារ"
     }
     return method
+  }
+
+  const renderPaymentMethod = (gift: Gift) => {
+    console.log(`Rendering payment method for gift ${gift._id}:`, {
+      type: gift.type,
+      paymentMethod: gift.paymentMethod,
+      amount: gift.amount,
+      currency: gift.currency,
+    })
+
+    if (gift.type !== "money") {
+      return "-"
+    }
+
+    if (!gift.paymentMethod) {
+      return "-"
+    }
+
+    return (
+      <Badge variant={gift.paymentMethod === "Cash" ? "outline" : "default"}>
+        {getLocalizedPaymentMethod(gift.paymentMethod)}
+      </Badge>
+    )
   }
 
   if (status === "loading" || loading) {
@@ -248,6 +274,23 @@ export default function GiftsPage() {
             </Button>
           </div>
         </div>
+
+        {/* Debug Info */}
+        {process.env.NODE_ENV === "development" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Debug Info</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>Total gifts: {gifts.length}</p>
+              <p>Filtered gifts: {filteredGifts.length}</p>
+              <details>
+                <summary>Raw gift data (first 3)</summary>
+                <pre className="text-xs overflow-auto max-h-40">{JSON.stringify(gifts.slice(0, 3), null, 2)}</pre>
+              </details>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Filters */}
         <Card>
@@ -325,15 +368,7 @@ export default function GiftsPage() {
                       <td className="p-2 font-medium">
                         {gift.type === "money" ? formatAmount(gift.amount, gift.currency) : "-"}
                       </td>
-                      <td className="p-2">
-                        {gift.type === "money" && gift.paymentMethod ? (
-                          <Badge variant={gift.paymentMethod === "Cash" ? "outline" : "default"}>
-                            {getLocalizedPaymentMethod(gift.paymentMethod)}
-                          </Badge>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
+                      <td className="p-2">{renderPaymentMethod(gift)}</td>
                       <td className="p-2 max-w-xs truncate">{gift.description || "-"}</td>
                       <td className="p-2">
                         {gift.proofImage ? (

@@ -14,6 +14,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const { guestId, type, amount, currency, paymentMethod, description, proofImage } = await request.json()
 
+    console.log("Updating gift with data:", { guestId, type, amount, currency, paymentMethod, description })
+
     if (!guestId || !type) {
       return NextResponse.json({ error: "Guest ID and type are required" }, { status: 400 })
     }
@@ -45,18 +47,31 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       guestId: guest.guestId,
       guestName: guest.name,
       type,
-      amount: type === "money" ? amount : undefined,
-      currency: type === "money" ? currency || "USD" : undefined,
-      paymentMethod: type === "money" ? paymentMethod : undefined,
       description,
       proofImage,
     }
+
+    // Handle money-specific fields
+    if (type === "money") {
+      updateData.amount = amount
+      updateData.currency = currency || "USD"
+      updateData.paymentMethod = paymentMethod
+    } else {
+      // If changing from money to item, remove money-specific fields
+      updateData.amount = undefined
+      updateData.currency = undefined
+      updateData.paymentMethod = undefined
+    }
+
+    console.log("Final update data:", updateData)
 
     const gift = await Gift.findOneAndUpdate({ _id: params.id, userId: session.user.id }, updateData, { new: true })
 
     if (!gift) {
       return NextResponse.json({ error: "Gift not found" }, { status: 404 })
     }
+
+    console.log("Updated gift:", JSON.stringify(gift, null, 2))
 
     return NextResponse.json(gift)
   } catch (error) {

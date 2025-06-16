@@ -17,11 +17,17 @@ const GiftSchema = new mongoose.Schema(
     },
     amount: {
       type: Number,
+      required: function () {
+        return this.type === "money"
+      },
     },
     currency: {
       type: String,
       enum: ["USD", "KHR"],
       default: "USD",
+      required: function () {
+        return this.type === "money"
+      },
     },
     paymentMethod: {
       type: String,

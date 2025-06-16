@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
 
     const gifts = await Gift.find({ userId: session.user.id }).sort({ createdAt: -1 })
 
+    // Debug log to check what data we're getting
+    console.log("Fetched gifts from DB:", JSON.stringify(gifts, null, 2))
+
     return NextResponse.json(gifts)
   } catch (error) {
     console.error("Get gifts error:", error)
@@ -33,6 +36,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { guestId, type, amount, currency, paymentMethod, description, proofImage } = body
 
+    console.log("Creating gift with data:", { guestId, type, amount, currency, paymentMethod, description })
+
     if (!guestId || !type) {
       return NextResponse.json({ error: "Guest ID and type are required" }, { status: 400 })
     }
@@ -49,19 +54,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Guest not found" }, { status: 404 })
     }
 
-    const gift = new Gift({
+    const giftData = {
       guestId,
       guestName: guest.name,
       type,
-      amount: type === "money" ? amount : undefined,
-      currency: type === "money" ? currency : undefined,
-      paymentMethod: type === "money" ? paymentMethod : undefined,
+      userId: session.user.id,
       description,
       proofImage,
-      userId: session.user.id,
-    })
+    }
 
+    // Only add money-specific fields if type is money
+    if (type === "money") {
+      giftData.amount = amount
+      giftData.currency = currency || "USD"
+      giftData.paymentMethod = paymentMethod
+    }
+
+    console.log("Final gift data to save:", giftData)
+
+    const gift = new Gift(giftData)
     await gift.save()
+
+    console.log("Saved gift:", JSON.stringify(gift, null, 2))
 
     return NextResponse.json(gift, { status: 201 })
   } catch (error) {
