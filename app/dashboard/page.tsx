@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react"
 import Layout from "@/components/Layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { Users, Gift, DollarSign } from "lucide-react"
+import { Users, Gift, DollarSign, RefreshCw } from "lucide-react"
 
 interface DashboardStats {
   guests: {
@@ -22,7 +23,8 @@ interface DashboardStats {
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const { t } = useLanguage()
+  const [refreshing, setRefreshing] = useState(false)
+  const { t, language } = useLanguage()
 
   useEffect(() => {
     fetchStats()
@@ -42,6 +44,26 @@ export default function DashboardPage() {
     }
   }
 
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    await fetchStats()
+    setRefreshing(false)
+  }
+
+  const getLocalizedGuestType = (guestType: string) => {
+    if (language === "km") {
+      return guestType === "Groom Side" ? "ភាគីកូនប្រុស" : "ភាគីកូនស្រី"
+    }
+    return guestType
+  }
+
+  const getLocalizedGiftType = (giftType: string) => {
+    if (language === "km") {
+      return giftType === "money" ? "ប្រាក់" : "របស់"
+    }
+    return giftType
+  }
+
   if (loading) {
     return (
       <Layout>
@@ -55,7 +77,13 @@ export default function DashboardPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-gray-900">{t("dashboard.title")}</h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-gray-900">{t("dashboard.title")}</h1>
+          <Button onClick={handleRefresh} disabled={refreshing} className="flex items-center space-x-2">
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            <span>{refreshing ? t("common.loading") : "Refresh"}</span>
+          </Button>
+        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -119,12 +147,14 @@ export default function DashboardPage() {
                         guest.guestType === "Groom Side" ? "bg-blue-100 text-blue-800" : "bg-pink-100 text-pink-800"
                       }`}
                     >
-                      {guest.guestType}
+                      {getLocalizedGuestType(guest.guestType)}
                     </span>
                   </div>
                 ))}
                 {(!stats?.guests.recent || stats.guests.recent.length === 0) && (
-                  <p className="text-gray-500 text-center py-4">No recent guests</p>
+                  <p className="text-gray-500 text-center py-4">
+                    {language === "km" ? "មិនមានភ្ញៀវថ្មីៗ" : "No recent guests"}
+                  </p>
                 )}
               </div>
             </CardContent>
@@ -141,7 +171,11 @@ export default function DashboardPage() {
                     <div>
                       <p className="font-medium">{gift.guestName}</p>
                       <p className="text-sm text-gray-500">
-                        {gift.type === "money" ? `$${gift.amount}` : gift.description}
+                        {gift.type === "money"
+                          ? gift.currency === "KHR"
+                            ? `៛${gift.amount}`
+                            : `$${gift.amount}`
+                          : gift.description}
                       </p>
                     </div>
                     <span
@@ -149,12 +183,14 @@ export default function DashboardPage() {
                         gift.type === "money" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"
                       }`}
                     >
-                      {gift.type}
+                      {getLocalizedGiftType(gift.type)}
                     </span>
                   </div>
                 ))}
                 {(!stats?.gifts.recent || stats.gifts.recent.length === 0) && (
-                  <p className="text-gray-500 text-center py-4">No recent gifts</p>
+                  <p className="text-gray-500 text-center py-4">
+                    {language === "km" ? "មិនមានអំណោយថ្មីៗ" : "No recent gifts"}
+                  </p>
                 )}
               </div>
             </CardContent>

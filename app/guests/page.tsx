@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import Layout from "@/components/Layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { Plus, Search, Edit, Trash2 } from "lucide-react"
+import { Plus, Search, Edit, Trash2, RefreshCw } from "lucide-react"
 import GuestDialog from "@/components/GuestDialog"
 
 interface Guest {
@@ -24,12 +25,14 @@ interface Guest {
 export default function GuestsPage() {
   const [guests, setGuests] = useState<Guest[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingGuest, setEditingGuest] = useState<Guest | null>(null)
   const { toast } = useToast()
   const { t } = useLanguage()
+  const router = useRouter()
 
   useEffect(() => {
     fetchGuests()
@@ -50,7 +53,13 @@ export default function GuestsPage() {
       console.error("Error fetching guests:", error)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
+  }
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    await fetchGuests()
   }
 
   const handleAddGuest = () => {
@@ -64,7 +73,7 @@ export default function GuestsPage() {
   }
 
   const handleDeleteGuest = async (guestId: string) => {
-    if (!confirm("Are you sure you want to delete this guest?")) return
+    if (!confirm(t("common.confirm"))) return
 
     try {
       const response = await fetch(`/api/guests/${guestId}`, {
@@ -73,16 +82,18 @@ export default function GuestsPage() {
 
       if (response.ok) {
         toast({
-          title: "Success",
+          title: t("common.success"),
           description: "Guest deleted successfully",
         })
-        fetchGuests()
+        // Refresh the entire page to get latest data
+        router.refresh()
+        window.location.reload()
       } else {
         throw new Error("Failed to delete guest")
       }
     } catch (error) {
       toast({
-        title: "Error",
+        title: t("common.error"),
         description: "Failed to delete guest",
         variant: "destructive",
       })
@@ -91,20 +102,9 @@ export default function GuestsPage() {
 
   const handleGuestSaved = () => {
     setDialogOpen(false)
-    fetchGuests()
-  }
-
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case "Confirmed":
-        return "bg-green-100 text-green-800"
-      case "Pending":
-        return "bg-yellow-100 text-yellow-800"
-      case "Not Attending":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+    // Refresh the entire page to get latest data
+    router.refresh()
+    window.location.reload()
   }
 
   if (loading) {
@@ -122,10 +122,21 @@ export default function GuestsPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900">{t("guests.title")}</h1>
-          <Button onClick={handleAddGuest} className="flex items-center space-x-2">
-            <Plus className="w-4 h-4" />
-            <span>{t("guests.addGuest")}</span>
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              variant="outline"
+              className="flex items-center space-x-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+              <span>{refreshing ? t("common.loading") : "Refresh"}</span>
+            </Button>
+            <Button onClick={handleAddGuest} className="flex items-center space-x-2">
+              <Plus className="w-4 h-4" />
+              <span>{t("guests.addGuest")}</span>
+            </Button>
+          </div>
         </div>
 
         {/* Search and Filter */}
@@ -208,7 +219,7 @@ export default function GuestsPage() {
                   ))}
                 </tbody>
               </table>
-              {guests.length === 0 && <div className="text-center py-8 text-gray-500">No guests found</div>}
+              {guests.length === 0 && <div className="text-center py-8 text-gray-500">{t("common.noData")}</div>}
             </div>
           </CardContent>
         </Card>

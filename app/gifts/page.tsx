@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { Plus, Search, Edit, Trash2, Eye } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Eye, RefreshCw } from "lucide-react"
 
 interface Gift {
   _id: string
@@ -33,6 +33,7 @@ export default function GiftsPage() {
   const [gifts, setGifts] = useState<Gift[]>([])
   const [filteredGifts, setFilteredGifts] = useState<Gift[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingGift, setEditingGift] = useState<Gift | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
@@ -74,7 +75,13 @@ export default function GiftsPage() {
       })
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
+  }
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    await fetchGifts()
   }
 
   const filterGifts = () => {
@@ -125,7 +132,9 @@ export default function GiftsPage() {
           title: t("common.success"),
           description: "Gift deleted successfully",
         })
-        fetchGifts()
+        // Refresh the entire page to get latest data
+        router.refresh()
+        window.location.reload()
       } else {
         throw new Error("Failed to delete gift")
       }
@@ -141,7 +150,9 @@ export default function GiftsPage() {
   const handleDialogSaved = () => {
     setDialogOpen(false)
     setEditingGift(null)
-    fetchGifts()
+    // Refresh the entire page to get latest data
+    router.refresh()
+    window.location.reload()
   }
 
   const formatAmount = (amount: number | undefined, currency: string | undefined) => {
@@ -181,10 +192,21 @@ export default function GiftsPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900">{t("gifts.title")}</h1>
-          <Button onClick={handleAddGift} className="flex items-center space-x-2">
-            <Plus className="w-4 h-4" />
-            <span>{t("gifts.addGift")}</span>
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              variant="outline"
+              className="flex items-center space-x-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+              <span>{refreshing ? t("common.loading") : "Refresh"}</span>
+            </Button>
+            <Button onClick={handleAddGift} className="flex items-center space-x-2">
+              <Plus className="w-4 h-4" />
+              <span>{t("gifts.addGift")}</span>
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}

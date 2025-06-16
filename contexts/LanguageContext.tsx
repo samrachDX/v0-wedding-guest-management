@@ -112,6 +112,7 @@ const translations = {
     "common.actions": "Actions",
     "common.noData": "No data found",
     "common.confirm": "Are you sure?",
+    "common.refresh": "Refresh",
 
     // Export
     "export.title": "Export Data",
@@ -223,6 +224,7 @@ const translations = {
     "common.actions": "សកម្មភាព",
     "common.noData": "មិនមានទិន្នន័យ",
     "common.confirm": "តើអ្នកប្រាកដទេ?",
+    "common.refresh": "ផ្ទុកឡើងវិញ",
 
     // Export
     "export.title": "នាំចេញទិន្នន័យ",
