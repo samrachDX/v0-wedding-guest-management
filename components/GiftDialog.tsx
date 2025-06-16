@@ -18,13 +18,25 @@ interface Guest {
   name: string
 }
 
+interface Gift {
+  _id?: string
+  guestId: number
+  guestName: string
+  type: "money" | "item"
+  amount?: number
+  currency?: string
+  description?: string
+  proofImage?: string
+}
+
 interface GiftDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSaved: () => void
+  gift?: Gift | null
 }
 
-export default function GiftDialog({ open, onOpenChange, onSaved }: GiftDialogProps) {
+export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDialogProps) {
   const [formData, setFormData] = useState({
     guestSearch: "",
     selectedGuest: null as Guest | null,
@@ -40,25 +52,41 @@ export default function GiftDialog({ open, onOpenChange, onSaved }: GiftDialogPr
   const { toast } = useToast()
   const { t } = useLanguage()
 
+  const isEditing = !!gift
+
   useEffect(() => {
-    if (!open) {
-      setFormData({
-        guestSearch: "",
-        selectedGuest: null,
-        type: "money",
-        amount: "",
-        currency: "USD",
-        description: "",
-        proofImage: "",
-      })
+    if (open) {
+      if (gift) {
+        // Editing existing gift
+        setFormData({
+          guestSearch: `${gift.guestId} - ${gift.guestName}`,
+          selectedGuest: { guestId: gift.guestId, name: gift.guestName },
+          type: gift.type,
+          amount: gift.amount?.toString() || "",
+          currency: (gift.currency as "USD" | "KHR") || "USD",
+          description: gift.description || "",
+          proofImage: gift.proofImage || "",
+        })
+      } else {
+        // Adding new gift
+        setFormData({
+          guestSearch: "",
+          selectedGuest: null,
+          type: "money",
+          amount: "",
+          currency: "USD",
+          description: "",
+          proofImage: "",
+        })
+      }
       setSearchResults([])
     }
-  }, [open])
+  }, [open, gift])
 
   // Search guests as user types
   useEffect(() => {
     const searchGuests = async () => {
-      if (formData.guestSearch.length > 0) {
+      if (formData.guestSearch.length > 0 && !formData.selectedGuest) {
         try {
           const response = await fetch(`/api/guests/search?q=${encodeURIComponent(formData.guestSearch)}`)
           if (response.ok) {
@@ -75,7 +103,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved }: GiftDialogPr
 
     const debounceTimer = setTimeout(searchGuests, 300)
     return () => clearTimeout(debounceTimer)
-  }, [formData.guestSearch])
+  }, [formData.guestSearch, formData.selectedGuest])
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -83,12 +111,12 @@ export default function GiftDialog({ open, onOpenChange, onSaved }: GiftDialogPr
 
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append("file", file)
+      const formDataUpload = new FormData()
+      formDataUpload.append("file", file)
 
       const response = await fetch("/api/upload", {
         method: "POST",
-        body: formData,
+        body: formDataUpload,
       })
 
       if (response.ok) {
@@ -137,8 +165,11 @@ export default function GiftDialog({ open, onOpenChange, onSaved }: GiftDialogPr
         proofImage: formData.proofImage,
       }
 
-      const response = await fetch("/api/gifts", {
-        method: "POST",
+      const url = isEditing ? `/api/gifts/${gift._id}` : "/api/gifts"
+      const method = isEditing ? "PUT" : "POST"
+
+      const response = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
         },
@@ -148,17 +179,17 @@ export default function GiftDialog({ open, onOpenChange, onSaved }: GiftDialogPr
       if (response.ok) {
         toast({
           title: "Success",
-          description: "Gift added successfully",
+          description: isEditing ? "Gift updated successfully" : "Gift added successfully",
         })
         onSaved()
       } else {
         const error = await response.json()
-        throw new Error(error.error || "Failed to add gift")
+        throw new Error(error.error || `Failed to ${isEditing ? "update" : "add"} gift`)
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add gift",
+        description: error instanceof Error ? error.message : `Failed to ${isEditing ? "update" : "add"} gift`,
         variant: "destructive",
       })
     } finally {
@@ -170,7 +201,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved }: GiftDialogPr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{t("gifts.addGift")}</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Gift" : t("gifts.addGift")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Guest Search */}
@@ -340,7 +371,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved }: GiftDialogPr
               {t("form.cancel")}
             </Button>
             <Button type="submit" disabled={loading || !formData.selectedGuest}>
-              {loading ? "Saving..." : t("form.save")}
+              {loading ? (isEditing ? "Updating..." : "Saving...") : isEditing ? "Update" : t("form.save")}
             </Button>
           </div>
         </form>

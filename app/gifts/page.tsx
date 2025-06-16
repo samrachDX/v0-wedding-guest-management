@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { Plus, Search, Eye } from "lucide-react"
+import { Plus, Search, Eye, Edit, Trash2 } from "lucide-react"
 import GiftDialog from "@/components/GiftDialog"
 
 interface Gift {
@@ -30,6 +30,7 @@ export default function GiftsPage() {
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingGift, setEditingGift] = useState<Gift | null>(null)
   const { toast } = useToast()
   const { t } = useLanguage()
 
@@ -56,11 +57,47 @@ export default function GiftsPage() {
   }
 
   const handleAddGift = () => {
+    setEditingGift(null)
     setDialogOpen(true)
+  }
+
+  const handleEditGift = (gift: Gift) => {
+    setEditingGift(gift)
+    setDialogOpen(true)
+  }
+
+  const handleDeleteGift = async (giftId: string) => {
+    if (!confirm("Are you sure you want to delete this gift?")) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/gifts/${giftId}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Gift deleted successfully",
+        })
+        fetchGifts()
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to delete gift")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete gift",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleGiftSaved = () => {
     setDialogOpen(false)
+    setEditingGift(null)
     fetchGifts()
   }
 
@@ -133,6 +170,7 @@ export default function GiftsPage() {
                     <th className="text-left py-3 px-4">{t("gifts.description")}</th>
                     <th className="text-left py-3 px-4">{t("gifts.proof")}</th>
                     <th className="text-left py-3 px-4">Date</th>
+                    <th className="text-left py-3 px-4">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -157,6 +195,21 @@ export default function GiftsPage() {
                         )}
                       </td>
                       <td className="py-3 px-4">{new Date(gift.createdAt).toLocaleDateString()}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center space-x-2">
+                          <Button variant="ghost" size="sm" onClick={() => handleEditGift(gift)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteGift(gift._id)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -166,7 +219,7 @@ export default function GiftsPage() {
           </CardContent>
         </Card>
 
-        <GiftDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={handleGiftSaved} />
+        <GiftDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={handleGiftSaved} gift={editingGift} />
       </div>
     </Layout>
   )
