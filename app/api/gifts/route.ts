@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { guestId, type, amount, description, proofImage } = await request.json()
+    const { guestId, type, amount, currency, description, proofImage } = await request.json()
 
     if (!guestId || !type) {
       return NextResponse.json({ error: "Guest ID and type are required" }, { status: 400 })
@@ -52,17 +52,29 @@ export async function POST(request: NextRequest) {
 
     await connectDB()
 
-    // Get guest name
-    const guest = await Guest.findOne({ guestId, userId: session.user.id })
+    // Get guest name by ID or name search
+    let guest
+    if (Number.isInteger(Number(guestId))) {
+      // Search by ID
+      guest = await Guest.findOne({ guestId: Number(guestId), userId: session.user.id })
+    } else {
+      // Search by name
+      guest = await Guest.findOne({
+        name: { $regex: guestId, $options: "i" },
+        userId: session.user.id,
+      })
+    }
+
     if (!guest) {
       return NextResponse.json({ error: "Guest not found" }, { status: 404 })
     }
 
     const gift = await Gift.create({
-      guestId,
+      guestId: guest.guestId,
       guestName: guest.name,
       type,
       amount: type === "money" ? amount : undefined,
+      currency: type === "money" ? currency || "USD" : undefined,
       description,
       proofImage,
       userId: session.user.id,

@@ -18,6 +18,11 @@ const GiftSchema = new mongoose.Schema(
     amount: {
       type: Number,
     },
+    currency: {
+      type: String,
+      enum: ["USD", "KHR"],
+      default: "USD",
+    },
     description: {
       type: String,
     },

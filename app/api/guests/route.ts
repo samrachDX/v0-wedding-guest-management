@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get("search")
-    const status = searchParams.get("status")
+    const guestType = searchParams.get("guestType")
 
     const query: any = { userId: session.user.id }
 
@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    if (status && status !== "all") {
-      query.attendanceStatus = status
+    if (guestType && guestType !== "all") {
+      query.guestType = guestType
     }
 
     const guests = await Guest.find(query).sort({ guestId: 1 })
@@ -47,10 +47,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { name, phone, email, attendanceStatus, tableNumber, notes } = await request.json()
+    const { name, phone, guestType, notes } = await request.json()
 
-    if (!name || !phone) {
-      return NextResponse.json({ error: "Name and phone are required" }, { status: 400 })
+    if (!name || !guestType) {
+      return NextResponse.json({ error: "Name and guest type are required" }, { status: 400 })
     }
 
     await connectDB()
@@ -62,10 +62,8 @@ export async function POST(request: NextRequest) {
     const guest = await Guest.create({
       guestId: nextGuestId,
       name,
-      phone,
-      email,
-      attendanceStatus: attendanceStatus || "Pending",
-      tableNumber,
+      phone: phone || undefined,
+      guestType,
       notes,
       userId: session.user.id,
     })

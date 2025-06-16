@@ -13,18 +13,12 @@ const GuestSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
+      required: false, // Made optional
+    },
+    guestType: {
+      type: String,
+      enum: ["Groom Side", "Bride Side"],
       required: true,
-    },
-    email: {
-      type: String,
-    },
-    attendanceStatus: {
-      type: String,
-      enum: ["Confirmed", "Pending", "Not Attending"],
-      default: "Pending",
-    },
-    tableNumber: {
-      type: Number,
     },
     notes: {
       type: String,

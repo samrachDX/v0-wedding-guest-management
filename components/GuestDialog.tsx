@@ -16,10 +16,8 @@ interface Guest {
   _id: string
   guestId: number
   name: string
-  phone: string
-  email?: string
-  attendanceStatus: "Confirmed" | "Pending" | "Not Attending"
-  tableNumber?: number
+  phone?: string
+  guestType: "Groom Side" | "Bride Side"
   notes?: string
 }
 
@@ -34,9 +32,7 @@ export default function GuestDialog({ open, onOpenChange, guest, onSaved }: Gues
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
-    email: "",
-    attendanceStatus: "Pending" as const,
-    tableNumber: "",
+    guestType: "Groom Side" as const,
     notes: "",
   })
   const [loading, setLoading] = useState(false)
@@ -47,19 +43,15 @@ export default function GuestDialog({ open, onOpenChange, guest, onSaved }: Gues
     if (guest) {
       setFormData({
         name: guest.name,
-        phone: guest.phone,
-        email: guest.email || "",
-        attendanceStatus: guest.attendanceStatus,
-        tableNumber: guest.tableNumber?.toString() || "",
+        phone: guest.phone || "",
+        guestType: guest.guestType,
         notes: guest.notes || "",
       })
     } else {
       setFormData({
         name: "",
         phone: "",
-        email: "",
-        attendanceStatus: "Pending",
-        tableNumber: "",
+        guestType: "Groom Side",
         notes: "",
       })
     }
@@ -72,7 +64,7 @@ export default function GuestDialog({ open, onOpenChange, guest, onSaved }: Gues
     try {
       const payload = {
         ...formData,
-        tableNumber: formData.tableNumber ? Number.parseInt(formData.tableNumber) : undefined,
+        phone: formData.phone || undefined,
       }
 
       const url = guest ? `/api/guests/${guest._id}` : "/api/guests"
@@ -123,49 +115,27 @@ export default function GuestDialog({ open, onOpenChange, guest, onSaved }: Gues
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="phone">{t("guests.phone")} *</Label>
+            <Label htmlFor="phone">{t("guests.phone")}</Label>
             <Input
               id="phone"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              required
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">{t("guests.email")}</Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="status">{t("guests.status")}</Label>
+            <Label htmlFor="guestType">Guest Type *</Label>
             <Select
-              value={formData.attendanceStatus}
-              onValueChange={(value: "Confirmed" | "Pending" | "Not Attending") =>
-                setFormData({ ...formData, attendanceStatus: value })
-              }
+              value={formData.guestType}
+              onValueChange={(value: "Groom Side" | "Bride Side") => setFormData({ ...formData, guestType: value })}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Pending">{t("guests.pending")}</SelectItem>
-                <SelectItem value="Confirmed">{t("guests.confirmed")}</SelectItem>
-                <SelectItem value="Not Attending">{t("guests.notAttending")}</SelectItem>
+                <SelectItem value="Groom Side">Groom Side</SelectItem>
+                <SelectItem value="Bride Side">Bride Side</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="tableNumber">{t("guests.table")}</Label>
-            <Input
-              id="tableNumber"
-              type="number"
-              value={formData.tableNumber}
-              onChange={(e) => setFormData({ ...formData, tableNumber: e.target.value })}
-            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="notes">Notes</Label>

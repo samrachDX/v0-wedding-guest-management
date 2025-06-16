@@ -21,6 +21,7 @@ interface Gift {
   description?: string
   proofImage?: string
   createdAt: string
+  currency?: string
 }
 
 export default function GiftsPage() {
@@ -142,11 +143,13 @@ export default function GiftsPage() {
                       <td className="py-3 px-4">
                         <Badge className={getTypeBadgeColor(gift.type)}>{gift.type}</Badge>
                       </td>
-                      <td className="py-3 px-4">{gift.type === "money" ? `$${gift.amount}` : "-"}</td>
+                      <td className="py-3 px-4">
+                        {gift.type === "money" ? `${gift.currency === "KHR" ? "៛" : "$"}${gift.amount}` : "-"}
+                      </td>
                       <td className="py-3 px-4">{gift.description || "-"}</td>
                       <td className="py-3 px-4">
                         {gift.proofImage ? (
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => window.open(gift.proofImage, "_blank")}>
                             <Eye className="w-4 h-4" />
                           </Button>
                         ) : (

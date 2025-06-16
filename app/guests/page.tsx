@@ -16,10 +16,8 @@ interface Guest {
   _id: string
   guestId: number
   name: string
-  phone: string
-  email?: string
-  attendanceStatus: "Confirmed" | "Pending" | "Not Attending"
-  tableNumber?: number
+  phone?: string
+  guestType: "Groom Side" | "Bride Side"
   notes?: string
 }
 
@@ -41,7 +39,7 @@ export default function GuestsPage() {
     try {
       const params = new URLSearchParams()
       if (search) params.append("search", search)
-      if (statusFilter !== "all") params.append("status", statusFilter)
+      if (statusFilter !== "all") params.append("guestType", statusFilter)
 
       const response = await fetch(`/api/guests?${params}`)
       if (response.ok) {
@@ -145,13 +143,12 @@ export default function GuestsPage() {
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue placeholder="Filter by status" />
+                  <SelectValue placeholder="Filter by type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Confirmed">{t("guests.confirmed")}</SelectItem>
-                  <SelectItem value="Pending">{t("guests.pending")}</SelectItem>
-                  <SelectItem value="Not Attending">{t("guests.notAttending")}</SelectItem>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="Groom Side">Groom Side</SelectItem>
+                  <SelectItem value="Bride Side">Bride Side</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -171,9 +168,8 @@ export default function GuestsPage() {
                     <th className="text-left py-3 px-4">ID</th>
                     <th className="text-left py-3 px-4">{t("guests.name")}</th>
                     <th className="text-left py-3 px-4">{t("guests.phone")}</th>
-                    <th className="text-left py-3 px-4">{t("guests.email")}</th>
-                    <th className="text-left py-3 px-4">{t("guests.status")}</th>
-                    <th className="text-left py-3 px-4">{t("guests.table")}</th>
+                    <th className="text-left py-3 px-4">Guest Type</th>
+                    <th className="text-left py-3 px-4">Notes</th>
                     <th className="text-left py-3 px-4">{t("guests.actions")}</th>
                   </tr>
                 </thead>
@@ -182,12 +178,17 @@ export default function GuestsPage() {
                     <tr key={guest._id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4 font-medium">{guest.guestId}</td>
                       <td className="py-3 px-4">{guest.name}</td>
-                      <td className="py-3 px-4">{guest.phone}</td>
-                      <td className="py-3 px-4">{guest.email || "-"}</td>
+                      <td className="py-3 px-4">{guest.phone || "-"}</td>
                       <td className="py-3 px-4">
-                        <Badge className={getStatusBadgeColor(guest.attendanceStatus)}>{guest.attendanceStatus}</Badge>
+                        <Badge
+                          className={
+                            guest.guestType === "Groom Side" ? "bg-blue-100 text-blue-800" : "bg-pink-100 text-pink-800"
+                          }
+                        >
+                          {guest.guestType}
+                        </Badge>
                       </td>
-                      <td className="py-3 px-4">{guest.tableNumber || "-"}</td>
+                      <td className="py-3 px-4">{guest.notes || "-"}</td>
                       <td className="py-3 px-4">
                         <div className="flex space-x-2">
                           <Button variant="ghost" size="sm" onClick={() => handleEditGuest(guest)}>

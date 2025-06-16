@@ -11,13 +11,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { name, phone, email, attendanceStatus, tableNumber, notes } = await request.json()
+    const { name, phone, guestType, notes } = await request.json()
 
     await connectDB()
 
     const guest = await Guest.findOneAndUpdate(
       { _id: params.id, userId: session.user.id },
-      { name, phone, email, attendanceStatus, tableNumber, notes },
+      { name, phone: phone || undefined, guestType, notes },
       { new: true },
     )
 
