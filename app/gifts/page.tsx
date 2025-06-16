@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { Plus, Search, Edit, Trash2, Eye, RefreshCw } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Eye, RefreshCw, Bug } from "lucide-react"
 
 interface Gift {
   _id: string
@@ -39,6 +39,8 @@ export default function GiftsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [currencyFilter, setCurrencyFilter] = useState("all")
+  const [debugInfo, setDebugInfo] = useState<any>(null)
+  const [showDebug, setShowDebug] = useState(false)
   const { toast } = useToast()
   const { t, language } = useLanguage()
 
@@ -63,7 +65,20 @@ export default function GiftsPage() {
       const response = await fetch("/api/gifts")
       if (response.ok) {
         const data = await response.json()
-        console.log("Fetched gifts in frontend:", data) // Debug log
+        console.log("=== FRONTEND RECEIVED GIFTS ===")
+        data.forEach((gift: Gift, index: number) => {
+          console.log(`Frontend Gift ${index + 1}:`, {
+            id: gift._id,
+            guestName: gift.guestName,
+            type: gift.type,
+            amount: gift.amount,
+            currency: gift.currency,
+            paymentMethod: gift.paymentMethod,
+            hasPaymentMethod: !!gift.paymentMethod,
+            paymentMethodType: typeof gift.paymentMethod,
+          })
+        })
+        console.log("=== END FRONTEND DEBUG ===")
         setGifts(data)
       } else {
         throw new Error("Failed to fetch gifts")
@@ -78,6 +93,47 @@ export default function GiftsPage() {
     } finally {
       setLoading(false)
       setRefreshing(false)
+    }
+  }
+
+  const fetchDebugInfo = async () => {
+    try {
+      const response = await fetch("/api/debug/gifts")
+      if (response.ok) {
+        const data = await response.json()
+        setDebugInfo(data)
+        setShowDebug(true)
+      }
+    } catch (error) {
+      console.error("Failed to fetch debug info:", error)
+    }
+  }
+
+  const runMigration = async () => {
+    if (!confirm("This will update all existing money gifts to have 'Cash' as the default payment method. Continue?")) {
+      return
+    }
+
+    try {
+      const response = await fetch("/api/migrate-gifts", {
+        method: "POST",
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Migration completed successfully",
+        })
+        fetchGifts() // Refresh the data
+      } else {
+        throw new Error("Migration failed")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Migration failed",
+        variant: "destructive",
+      })
     }
   }
 
@@ -115,7 +171,7 @@ export default function GiftsPage() {
   }
 
   const handleEditGift = (gift: Gift) => {
-    console.log("Editing gift:", gift) // Debug log
+    console.log("Editing gift:", gift)
     setEditingGift(gift)
     setDialogOpen(true)
   }
@@ -135,9 +191,7 @@ export default function GiftsPage() {
           title: t("common.success"),
           description: "Gift deleted successfully",
         })
-        // Refresh the entire page to get latest data
-        router.refresh()
-        window.location.reload()
+        fetchGifts() // Refresh data instead of full page reload
       } else {
         throw new Error("Failed to delete gift")
       }
@@ -153,14 +207,11 @@ export default function GiftsPage() {
   const handleDialogSaved = () => {
     setDialogOpen(false)
     setEditingGift(null)
-    // Refresh the entire page to get latest data
-    router.refresh()
-    window.location.reload()
+    fetchGifts() // Refresh data instead of full page reload
   }
 
   const handleViewProof = (proofImage: string) => {
     if (proofImage) {
-      // Create a new window to display the image
       const newWindow = window.open("", "_blank")
       if (newWindow) {
         newWindow.document.write(`
@@ -221,19 +272,21 @@ export default function GiftsPage() {
   }
 
   const renderPaymentMethod = (gift: Gift) => {
-    console.log(`Rendering payment method for gift ${gift._id}:`, {
-      type: gift.type,
-      paymentMethod: gift.paymentMethod,
-      amount: gift.amount,
-      currency: gift.currency,
-    })
+    console.log(`=== RENDERING PAYMENT METHOD ===`)
+    console.log(`Gift ID: ${gift._id}`)
+    console.log(`Guest: ${gift.guestName}`)
+    console.log(`Type: ${gift.type}`)
+    console.log(`Payment Method: "${gift.paymentMethod}"`)
+    console.log(`Has Payment Method: ${!!gift.paymentMethod}`)
+    console.log(`Payment Method Type: ${typeof gift.paymentMethod}`)
+    console.log(`=== END RENDER DEBUG ===`)
 
     if (gift.type !== "money") {
-      return "-"
+      return <span className="text-gray-400">-</span>
     }
 
-    if (!gift.paymentMethod) {
-      return "-"
+    if (!gift.paymentMethod || gift.paymentMethod === "") {
+      return <span className="text-red-500">Missing</span>
     }
 
     return (
@@ -259,6 +312,17 @@ export default function GiftsPage() {
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900">{t("gifts.title")}</h1>
           <div className="flex space-x-2">
+            <Button onClick={fetchDebugInfo} variant="outline" className="flex items-center space-x-2">
+              <Bug className="w-4 h-4" />
+              <span>Debug</span>
+            </Button>
+            <Button
+              onClick={runMigration}
+              variant="outline"
+              className="flex items-center space-x-2 bg-yellow-50 hover:bg-yellow-100"
+            >
+              <span>Fix Data</span>
+            </Button>
             <Button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -275,19 +339,47 @@ export default function GiftsPage() {
           </div>
         </div>
 
-        {/* Debug Info */}
-        {process.env.NODE_ENV === "development" && (
-          <Card>
+        {/* Debug Info Panel */}
+        {showDebug && debugInfo && (
+          <Card className="border-yellow-200 bg-yellow-50">
             <CardHeader>
-              <CardTitle>Debug Info</CardTitle>
+              <CardTitle className="flex justify-between items-center">
+                Debug Information
+                <Button variant="ghost" size="sm" onClick={() => setShowDebug(false)}>
+                  ×
+                </Button>
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p>Total gifts: {gifts.length}</p>
-              <p>Filtered gifts: {filteredGifts.length}</p>
-              <details>
-                <summary>Raw gift data (first 3)</summary>
-                <pre className="text-xs overflow-auto max-h-40">{JSON.stringify(gifts.slice(0, 3), null, 2)}</pre>
-              </details>
+              <div className="space-y-2 text-sm">
+                <p>
+                  <strong>Total Gifts:</strong> {debugInfo.totalGifts}
+                </p>
+                <div className="max-h-60 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-1">Guest</th>
+                        <th className="text-left p-1">Type</th>
+                        <th className="text-left p-1">Payment Method</th>
+                        <th className="text-left p-1">Has PM</th>
+                        <th className="text-left p-1">PM Type</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {debugInfo.gifts.map((gift: any) => (
+                        <tr key={gift._id} className="border-b">
+                          <td className="p-1">{gift.guestName}</td>
+                          <td className="p-1">{gift.type}</td>
+                          <td className="p-1 font-mono">"{gift.paymentMethod}"</td>
+                          <td className="p-1">{gift.hasPaymentMethod ? "✅" : "❌"}</td>
+                          <td className="p-1">{gift.paymentMethodType}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
