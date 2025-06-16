@@ -25,6 +25,7 @@ interface Gift {
   type: "money" | "item"
   amount?: number
   currency?: string
+  paymentMethod?: string
   description?: string
   proofImage?: string
 }
@@ -43,6 +44,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
     type: "money" as "money" | "item",
     amount: "",
     currency: "USD" as "USD" | "KHR",
+    paymentMethod: "Cash" as "Cash" | "KHQR",
     description: "",
     proofImage: "",
   })
@@ -64,6 +66,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
           type: gift.type,
           amount: gift.amount?.toString() || "",
           currency: (gift.currency as "USD" | "KHR") || "USD",
+          paymentMethod: (gift.paymentMethod as "Cash" | "KHQR") || "Cash",
           description: gift.description || "",
           proofImage: gift.proofImage || "",
         })
@@ -75,6 +78,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
           type: "money",
           amount: "",
           currency: "USD",
+          paymentMethod: "Cash",
           description: "",
           proofImage: "",
         })
@@ -161,6 +165,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
         type: formData.type,
         amount: formData.type === "money" ? Number.parseFloat(formData.amount) : undefined,
         currency: formData.type === "money" ? formData.currency : undefined,
+        paymentMethod: formData.type === "money" ? formData.paymentMethod : undefined,
         description: formData.description,
         proofImage: formData.proofImage,
       }
@@ -276,32 +281,51 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
             </Select>
           </div>
 
-          {/* Amount and Currency (for money gifts) */}
+          {/* Amount, Currency, and Payment Method (for money gifts) */}
           {formData.type === "money" && (
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-2">
-                <Label htmlFor="amount">{t("gifts.amount")} *</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  required
-                />
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <Label htmlFor="amount">{t("gifts.amount")} *</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    value={formData.amount}
+                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="currency">Currency</Label>
+                  <Select
+                    value={formData.currency}
+                    onValueChange={(value: "USD" | "KHR") => setFormData({ ...formData, currency: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">USD ($)</SelectItem>
+                      <SelectItem value="KHR">KHR (៛)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
+              {/* Payment Method */}
               <div className="space-y-2">
-                <Label htmlFor="currency">Currency</Label>
+                <Label htmlFor="paymentMethod">Payment Method *</Label>
                 <Select
-                  value={formData.currency}
-                  onValueChange={(value: "USD" | "KHR") => setFormData({ ...formData, currency: value })}
+                  value={formData.paymentMethod}
+                  onValueChange={(value: "Cash" | "KHQR") => setFormData({ ...formData, paymentMethod: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="USD">USD ($)</SelectItem>
-                    <SelectItem value="KHR">KHR (៛)</SelectItem>
+                    <SelectItem value="Cash">Cash</SelectItem>
+                    <SelectItem value="KHQR">KHQR</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

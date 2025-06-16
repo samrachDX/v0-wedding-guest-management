@@ -14,21 +14,7 @@ export async function GET(request: NextRequest) {
 
     await connectDB()
 
-    const { searchParams } = new URL(request.url)
-    const search = searchParams.get("search")
-    const type = searchParams.get("type")
-
-    const query: any = { userId: session.user.id }
-
-    if (search) {
-      query.$or = [{ guestId: Number.parseInt(search) || 0 }, { guestName: { $regex: search, $options: "i" } }]
-    }
-
-    if (type && type !== "all") {
-      query.type = type
-    }
-
-    const gifts = await Gift.find(query).sort({ createdAt: -1 })
+    const gifts = await Gift.find({ userId: session.user.id }).sort({ createdAt: -1 })
 
     return NextResponse.json(gifts)
   } catch (error) {
@@ -44,41 +30,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { guestId, type, amount, currency, description, proofImage } = await request.json()
+    const body = await request.json()
+    const { guestId, type, amount, currency, paymentMethod, description, proofImage } = body
 
     if (!guestId || !type) {
       return NextResponse.json({ error: "Guest ID and type are required" }, { status: 400 })
     }
 
-    await connectDB()
-
-    // Get guest name by ID or name search
-    let guest
-    if (Number.isInteger(Number(guestId))) {
-      // Search by ID
-      guest = await Guest.findOne({ guestId: Number(guestId), userId: session.user.id })
-    } else {
-      // Search by name
-      guest = await Guest.findOne({
-        name: { $regex: guestId, $options: "i" },
-        userId: session.user.id,
-      })
+    if (type === "money" && (!amount || !paymentMethod)) {
+      return NextResponse.json({ error: "Amount and payment method are required for money gifts" }, { status: 400 })
     }
 
+    await connectDB()
+
+    // Get guest name
+    const guest = await Guest.findOne({ guestId, userId: session.user.id })
     if (!guest) {
       return NextResponse.json({ error: "Guest not found" }, { status: 404 })
     }
 
-    const gift = await Gift.create({
-      guestId: guest.guestId,
+    const gift = new Gift({
+      guestId,
       guestName: guest.name,
       type,
       amount: type === "money" ? amount : undefined,
-      currency: type === "money" ? currency || "USD" : undefined,
+      currency: type === "money" ? currency : undefined,
+      paymentMethod: type === "money" ? paymentMethod : undefined,
       description,
       proofImage,
       userId: session.user.id,
     })
+
+    await gift.save()
 
     return NextResponse.json(gift, { status: 201 })
   } catch (error) {

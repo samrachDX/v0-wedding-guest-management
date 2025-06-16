@@ -23,6 +23,13 @@ const GiftSchema = new mongoose.Schema(
       enum: ["USD", "KHR"],
       default: "USD",
     },
+    paymentMethod: {
+      type: String,
+      enum: ["Cash", "KHQR"],
+      required: function () {
+        return this.type === "money"
+      },
+    },
     description: {
       type: String,
     },

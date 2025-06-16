@@ -25,39 +25,52 @@ export async function GET(request: NextRequest) {
     if (type === "guests") {
       const query: any = { userId: session.user.id }
       if (status && status !== "all") {
-        query.attendanceStatus = status
+        query.guestType = status
       }
 
       const guests = await Guest.find(query).sort({ guestId: 1 })
-      headers = ["Guest ID", "Name", "Phone", "Email", "Status", "Table", "Notes"]
-      data = guests.map((guest) => [
-        guest.guestId,
-        guest.name,
-        guest.phone,
-        guest.email || "",
-        guest.attendanceStatus,
-        guest.tableNumber || "",
-        guest.notes || "",
-      ])
+      headers = ["Guest ID", "Name", "Phone", "Guest Type", "Notes"]
+      data = guests.map((guest) => [guest.guestId, guest.name, guest.phone || "", guest.guestType, guest.notes || ""])
     } else if (type === "gifts") {
       const gifts = await Gift.find({ userId: session.user.id }).sort({ createdAt: -1 })
-      headers = ["Guest ID", "Guest Name", "Type", "Amount", "Description", "Date"]
+      headers = ["Guest ID", "Guest Name", "Type", "Amount", "Currency", "Payment Method", "Description", "Date"]
       data = gifts.map((gift) => [
         gift.guestId,
         gift.guestName,
         gift.type,
         gift.amount || "",
+        gift.currency || "",
+        gift.paymentMethod || "",
         gift.description || "",
         gift.createdAt.toISOString().split("T")[0],
       ])
     }
 
     if (format === "csv") {
-      const csvContent = [headers.join(","), ...data.map((row) => row.join(","))].join("\n")
+      // Create CSV with proper UTF-8 BOM for Unicode support
+      const csvContent = [
+        headers.join(","),
+        ...data.map((row) =>
+          row
+            .map((cell) => {
+              // Escape commas and quotes in cell data
+              const cellStr = String(cell || "")
+              if (cellStr.includes(",") || cellStr.includes('"') || cellStr.includes("\n")) {
+                return `"${cellStr.replace(/"/g, '""')}"`
+              }
+              return cellStr
+            })
+            .join(","),
+        ),
+      ].join("\n")
 
-      return new NextResponse(csvContent, {
+      // Add UTF-8 BOM for proper Unicode display in Excel
+      const utf8BOM = "\uFEFF"
+      const csvWithBOM = utf8BOM + csvContent
+
+      return new NextResponse(csvWithBOM, {
         headers: {
-          "Content-Type": "text/csv",
+          "Content-Type": "text/csv; charset=utf-8",
           "Content-Disposition": `attachment; filename="${type}-export.csv"`,
         },
       })

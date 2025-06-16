@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import connectDB from "@/lib/mongodb"
 import Guest from "@/lib/models/Guest"
 import Gift from "@/lib/models/Gift"
+import mongoose from "mongoose"
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,21 +15,27 @@ export async function GET(request: NextRequest) {
 
     await connectDB()
 
-    const userId = session.user.id
+    const userId = new mongoose.Types.ObjectId(session.user.id)
 
     // Get guest statistics
     const totalGuests = await Guest.countDocuments({ userId })
-    const confirmedGuests = await Guest.countDocuments({ userId, attendanceStatus: "Confirmed" })
-    const pendingGuests = await Guest.countDocuments({ userId, attendanceStatus: "Pending" })
-    const notAttendingGuests = await Guest.countDocuments({ userId, attendanceStatus: "Not Attending" })
 
     // Get gift statistics
     const totalGifts = await Gift.countDocuments({ userId })
-    const moneyGifts = await Gift.aggregate([
-      { $match: { userId: session.user.id, type: "money" } },
+
+    // Get USD money gifts total
+    const usdGifts = await Gift.aggregate([
+      { $match: { userId: userId, type: "money", currency: "USD" } },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ])
-    const totalMoney = moneyGifts.length > 0 ? moneyGifts[0].total : 0
+    const totalUSD = usdGifts.length > 0 ? usdGifts[0].total : 0
+
+    // Get KHR money gifts total
+    const khrGifts = await Gift.aggregate([
+      { $match: { userId: userId, type: "money", currency: "KHR" } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ])
+    const totalKHR = khrGifts.length > 0 ? khrGifts[0].total : 0
 
     // Get recent guests and gifts
     const recentGuests = await Guest.find({ userId }).sort({ createdAt: -1 }).limit(5)
@@ -37,14 +44,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       guests: {
         total: totalGuests,
-        confirmed: confirmedGuests,
-        pending: pendingGuests,
-        notAttending: notAttendingGuests,
         recent: recentGuests,
       },
       gifts: {
         total: totalGifts,
-        totalMoney,
+        totalUSD,
+        totalKHR,
         recent: recentGifts,
       },
     })
