@@ -39,7 +39,7 @@ export default function GiftsPage() {
   const [typeFilter, setTypeFilter] = useState("all")
   const [currencyFilter, setCurrencyFilter] = useState("all")
   const { toast } = useToast()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -68,7 +68,7 @@ export default function GiftsPage() {
       }
     } catch (error) {
       toast({
-        title: "Error",
+        title: t("common.error"),
         description: "Failed to load gifts",
         variant: "destructive",
       })
@@ -111,7 +111,7 @@ export default function GiftsPage() {
   }
 
   const handleDeleteGift = async (giftId: string) => {
-    if (!confirm("Are you sure you want to delete this gift?")) {
+    if (!confirm(t("common.confirm"))) {
       return
     }
 
@@ -122,7 +122,7 @@ export default function GiftsPage() {
 
       if (response.ok) {
         toast({
-          title: "Success",
+          title: t("common.success"),
           description: "Gift deleted successfully",
         })
         fetchGifts()
@@ -131,7 +131,7 @@ export default function GiftsPage() {
       }
     } catch (error) {
       toast({
-        title: "Error",
+        title: t("common.error"),
         description: "Failed to delete gift",
         variant: "destructive",
       })
@@ -150,6 +150,20 @@ export default function GiftsPage() {
       return `៛${amount.toLocaleString()}`
     }
     return `$${amount.toLocaleString()}`
+  }
+
+  const getLocalizedType = (type: string) => {
+    if (language === "km") {
+      return type === "money" ? "ប្រាក់" : "របស់"
+    }
+    return type
+  }
+
+  const getLocalizedPaymentMethod = (method: string) => {
+    if (language === "km") {
+      return method === "Cash" ? "សាច់ប្រាក់" : "ខេអាកូអារ"
+    }
+    return method
   }
 
   if (status === "loading" || loading) {
@@ -176,14 +190,14 @@ export default function GiftsPage() {
         {/* Filters */}
         <Card>
           <CardHeader>
-            <CardTitle>Filters</CardTitle>
+            <CardTitle>{t("gifts.filters")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
-                  placeholder="Search by guest name, ID, or description..."
+                  placeholder={t("gifts.searchPlaceholder")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -191,20 +205,20 @@ export default function GiftsPage() {
               </div>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Filter by type" />
+                  <SelectValue placeholder={t("gifts.filterByType")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="money">Money</SelectItem>
-                  <SelectItem value="item">Item</SelectItem>
+                  <SelectItem value="all">{t("gifts.allTypes")}</SelectItem>
+                  <SelectItem value="money">{t("gifts.money")}</SelectItem>
+                  <SelectItem value="item">{t("gifts.item")}</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Filter by currency" />
+                  <SelectValue placeholder={t("gifts.filterByCurrency")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Currencies</SelectItem>
+                  <SelectItem value="all">{t("gifts.allCurrencies")}</SelectItem>
                   <SelectItem value="USD">USD</SelectItem>
                   <SelectItem value="KHR">KHR</SelectItem>
                 </SelectContent>
@@ -216,22 +230,24 @@ export default function GiftsPage() {
         {/* Gifts Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Gifts ({filteredGifts.length})</CardTitle>
+            <CardTitle>
+              {t("gifts.title")} ({filteredGifts.length})
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full table-auto">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left p-2">Guest ID</th>
-                    <th className="text-left p-2">Guest Name</th>
-                    <th className="text-left p-2">Type</th>
-                    <th className="text-left p-2">Amount</th>
-                    <th className="text-left p-2">Payment Method</th>
-                    <th className="text-left p-2">Description</th>
-                    <th className="text-left p-2">Proof</th>
-                    <th className="text-left p-2">Date</th>
-                    <th className="text-left p-2">Actions</th>
+                    <th className="text-left p-2">{t("gifts.guestId")}</th>
+                    <th className="text-left p-2">{t("gifts.guestName")}</th>
+                    <th className="text-left p-2">{t("gifts.type")}</th>
+                    <th className="text-left p-2">{t("gifts.amount")}</th>
+                    <th className="text-left p-2">{t("gifts.paymentMethod")}</th>
+                    <th className="text-left p-2">{t("gifts.description")}</th>
+                    <th className="text-left p-2">{t("gifts.proof")}</th>
+                    <th className="text-left p-2">{t("gifts.date")}</th>
+                    <th className="text-left p-2">{t("common.actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -240,7 +256,9 @@ export default function GiftsPage() {
                       <td className="p-2 font-medium">{gift.guestId}</td>
                       <td className="p-2">{gift.guestName}</td>
                       <td className="p-2">
-                        <Badge variant={gift.type === "money" ? "default" : "secondary"}>{gift.type}</Badge>
+                        <Badge variant={gift.type === "money" ? "default" : "secondary"}>
+                          {getLocalizedType(gift.type)}
+                        </Badge>
                       </td>
                       <td className="p-2 font-medium">
                         {gift.type === "money" ? formatAmount(gift.amount, gift.currency) : "-"}
@@ -248,7 +266,7 @@ export default function GiftsPage() {
                       <td className="p-2">
                         {gift.type === "money" && gift.paymentMethod ? (
                           <Badge variant={gift.paymentMethod === "Cash" ? "outline" : "default"}>
-                            {gift.paymentMethod}
+                            {getLocalizedPaymentMethod(gift.paymentMethod)}
                           </Badge>
                         ) : (
                           "-"
@@ -285,7 +303,7 @@ export default function GiftsPage() {
                   {filteredGifts.length === 0 && (
                     <tr>
                       <td colSpan={9} className="text-center py-8 text-gray-500">
-                        No gifts found
+                        {t("common.noData")}
                       </td>
                     </tr>
                   )}
