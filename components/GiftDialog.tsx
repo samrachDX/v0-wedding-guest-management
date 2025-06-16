@@ -157,6 +157,15 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
       return
     }
 
+    if (formData.type === "money" && (!formData.amount || !formData.paymentMethod)) {
+      toast({
+        title: "Error",
+        description: "Amount and payment method are required for money gifts",
+        variant: "destructive",
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -170,6 +179,8 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
         proofImage: formData.proofImage,
       }
 
+      console.log("Submitting payload:", payload) // Debug log
+
       const url = isEditing ? `/api/gifts/${gift._id}` : "/api/gifts"
       const method = isEditing ? "PUT" : "POST"
 
@@ -182,6 +193,8 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
       })
 
       if (response.ok) {
+        const result = await response.json()
+        console.log("Response:", result) // Debug log
         toast({
           title: "Success",
           description: isEditing ? "Gift updated successfully" : "Gift added successfully",
@@ -189,9 +202,11 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
         onSaved()
       } else {
         const error = await response.json()
+        console.error("API Error:", error) // Debug log
         throw new Error(error.error || `Failed to ${isEditing ? "update" : "add"} gift`)
       }
     } catch (error) {
+      console.error("Submit error:", error) // Debug log
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : `Failed to ${isEditing ? "update" : "add"} gift`,
@@ -199,6 +214,44 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleViewProof = () => {
+    if (formData.proofImage) {
+      // Create a new window to display the image
+      const newWindow = window.open("", "_blank")
+      if (newWindow) {
+        newWindow.document.write(`
+          <html>
+            <head>
+              <title>Proof Image</title>
+              <style>
+                body { 
+                  margin: 0; 
+                  padding: 20px; 
+                  display: flex; 
+                  justify-content: center; 
+                  align-items: center; 
+                  min-height: 100vh; 
+                  background: #f0f0f0; 
+                }
+                img { 
+                  max-width: 100%; 
+                  max-height: 100vh; 
+                  object-fit: contain; 
+                  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                  border-radius: 8px;
+                }
+              </style>
+            </head>
+            <body>
+              <img src="${formData.proofImage}" alt="Proof Image" />
+            </body>
+          </html>
+        `)
+        newWindow.document.close()
+      }
     }
   }
 
@@ -366,6 +419,11 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
                   <Upload className="w-4 h-4" />
                   <span>{uploading ? t("form.uploading") : t("form.uploadImage")}</span>
                 </Button>
+                {formData.proofImage && (
+                  <Button type="button" variant="outline" onClick={handleViewProof}>
+                    View Image
+                  </Button>
+                )}
               </div>
 
               {/* Image Preview */}
@@ -374,7 +432,8 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
                   <img
                     src={formData.proofImage || "/placeholder.svg"}
                     alt="Proof"
-                    className="w-full h-32 object-cover rounded border"
+                    className="w-full h-32 object-cover rounded border cursor-pointer"
+                    onClick={handleViewProof}
                   />
                   <Button
                     type="button"

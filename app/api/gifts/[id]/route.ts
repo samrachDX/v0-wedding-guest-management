@@ -12,10 +12,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { guestId, type, amount, currency, description, proofImage } = await request.json()
+    const { guestId, type, amount, currency, paymentMethod, description, proofImage } = await request.json()
 
     if (!guestId || !type) {
       return NextResponse.json({ error: "Guest ID and type are required" }, { status: 400 })
+    }
+
+    if (type === "money" && (!amount || !paymentMethod)) {
+      return NextResponse.json({ error: "Amount and payment method are required for money gifts" }, { status: 400 })
     }
 
     await connectDB()
@@ -37,19 +41,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Guest not found" }, { status: 404 })
     }
 
-    const gift = await Gift.findOneAndUpdate(
-      { _id: params.id, userId: session.user.id },
-      {
-        guestId: guest.guestId,
-        guestName: guest.name,
-        type,
-        amount: type === "money" ? amount : undefined,
-        currency: type === "money" ? currency || "USD" : undefined,
-        description,
-        proofImage,
-      },
-      { new: true },
-    )
+    const updateData = {
+      guestId: guest.guestId,
+      guestName: guest.name,
+      type,
+      amount: type === "money" ? amount : undefined,
+      currency: type === "money" ? currency || "USD" : undefined,
+      paymentMethod: type === "money" ? paymentMethod : undefined,
+      description,
+      proofImage,
+    }
+
+    const gift = await Gift.findOneAndUpdate({ _id: params.id, userId: session.user.id }, updateData, { new: true })
 
     if (!gift) {
       return NextResponse.json({ error: "Gift not found" }, { status: 404 })

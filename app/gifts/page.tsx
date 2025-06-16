@@ -63,6 +63,7 @@ export default function GiftsPage() {
       const response = await fetch("/api/gifts")
       if (response.ok) {
         const data = await response.json()
+        console.log("Fetched gifts:", data) // Debug log
         setGifts(data)
       } else {
         throw new Error("Failed to fetch gifts")
@@ -113,6 +114,7 @@ export default function GiftsPage() {
   }
 
   const handleEditGift = (gift: Gift) => {
+    console.log("Editing gift:", gift) // Debug log
     setEditingGift(gift)
     setDialogOpen(true)
   }
@@ -153,6 +155,44 @@ export default function GiftsPage() {
     // Refresh the entire page to get latest data
     router.refresh()
     window.location.reload()
+  }
+
+  const handleViewProof = (proofImage: string) => {
+    if (proofImage) {
+      // Create a new window to display the image
+      const newWindow = window.open("", "_blank")
+      if (newWindow) {
+        newWindow.document.write(`
+          <html>
+            <head>
+              <title>Proof Image</title>
+              <style>
+                body { 
+                  margin: 0; 
+                  padding: 20px; 
+                  display: flex; 
+                  justify-content: center; 
+                  align-items: center; 
+                  min-height: 100vh; 
+                  background: #f0f0f0; 
+                }
+                img { 
+                  max-width: 100%; 
+                  max-height: 100vh; 
+                  object-fit: contain; 
+                  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                  border-radius: 8px;
+                }
+              </style>
+            </head>
+            <body>
+              <img src="${proofImage}" alt="Proof Image" />
+            </body>
+          </html>
+        `)
+        newWindow.document.close()
+      }
+    }
   }
 
   const formatAmount = (amount: number | undefined, currency: string | undefined) => {
@@ -297,7 +337,7 @@ export default function GiftsPage() {
                       <td className="p-2 max-w-xs truncate">{gift.description || "-"}</td>
                       <td className="p-2">
                         {gift.proofImage ? (
-                          <Button variant="ghost" size="sm" onClick={() => window.open(gift.proofImage, "_blank")}>
+                          <Button variant="ghost" size="sm" onClick={() => handleViewProof(gift.proofImage!)}>
                             <Eye className="w-4 h-4" />
                           </Button>
                         ) : (
