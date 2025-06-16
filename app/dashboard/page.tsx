@@ -81,7 +81,7 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Money (USD)</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("dashboard.totalMoneyUSD")}</CardTitle>
               <DollarSign className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
@@ -91,7 +91,7 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Money (KHR)</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("dashboard.totalMoneyKHR")}</CardTitle>
               <DollarSign className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>

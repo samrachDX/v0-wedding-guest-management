@@ -85,6 +85,18 @@ const translations = {
     "form.optional": "Optional",
     "form.saving": "Saving...",
     "form.updating": "Updating...",
+    "form.currency": "Currency",
+    "form.paymentMethod": "Payment Method",
+    "form.cash": "Cash",
+    "form.khqr": "KHQR",
+    "form.proofImage": "Proof Image",
+    "form.guestType": "Guest Type",
+    "form.groomSide": "Groom Side",
+    "form.brideSide": "Bride Side",
+    "form.notes": "Notes",
+    "form.uploadImage": "Upload Image",
+    "form.uploading": "Uploading...",
+    "form.selectGuest": "Please select a guest",
 
     // Common
     "common.loading": "Loading...",
@@ -107,6 +119,9 @@ const translations = {
     "export.gifts": "Export Gifts",
     "export.csv": "CSV",
     "export.excel": "Excel",
+
+    // Search
+    "search.guestIdOrName": "Search Guest (ID or Name)",
   },
   km: {
     // Navigation
@@ -181,6 +196,18 @@ const translations = {
     "form.optional": "ស្រេចចិត្ត",
     "form.saving": "កំពុងរក្សាទុក...",
     "form.updating": "កំពុងធ្វើបច្ចុប្បន្នភាព...",
+    "form.currency": "រូបិយប័ណ្ណ",
+    "form.paymentMethod": "វិធីបង់ប្រាក់",
+    "form.cash": "សាច់ប្រាក់",
+    "form.khqr": "ខេអាកូអារ",
+    "form.proofImage": "រូបភាពភស្តុតាង",
+    "form.guestType": "ប្រភេទភ្ញៀវ",
+    "form.groomSide": "ភាគីកូនប្រុស",
+    "form.brideSide": "ភាគីកូនស្រី",
+    "form.notes": "កំណត់ចំណាំ",
+    "form.uploadImage": "ផ្ទុកឡើងរូបភាព",
+    "form.uploading": "កំពុងផ្ទុកឡើង...",
+    "form.selectGuest": "សូមជ្រើសរើសភ្ញៀវ",
 
     // Common
     "common.loading": "កំពុងផ្ទុក...",
@@ -203,6 +230,9 @@ const translations = {
     "export.gifts": "នាំចេញអំណោយ",
     "export.csv": "ស៊ីអេសវី",
     "export.excel": "អិចសែល",
+
+    // Search
+    "search.guestIdOrName": "ស្វែងរកភ្ញៀវ (លេខសម្គាល់ ឬឈ្មោះ)",
   },
 }
 

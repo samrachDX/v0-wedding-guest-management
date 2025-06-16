@@ -151,7 +151,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
     if (!formData.selectedGuest) {
       toast({
         title: "Error",
-        description: "Please select a guest",
+        description: t("form.selectGuest"),
         variant: "destructive",
       })
       return
@@ -211,7 +211,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Guest Search */}
           <div className="space-y-2">
-            <Label htmlFor="guestSearch">Search Guest (ID or Name) *</Label>
+            <Label htmlFor="guestSearch">{t("search.guestIdOrName")} *</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
@@ -297,7 +297,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="currency">Currency</Label>
+                  <Label htmlFor="currency">{t("form.currency")}</Label>
                   <Select
                     value={formData.currency}
                     onValueChange={(value: "USD" | "KHR") => setFormData({ ...formData, currency: value })}
@@ -315,7 +315,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
 
               {/* Payment Method */}
               <div className="space-y-2">
-                <Label htmlFor="paymentMethod">Payment Method *</Label>
+                <Label htmlFor="paymentMethod">{t("form.paymentMethod")} *</Label>
                 <Select
                   value={formData.paymentMethod}
                   onValueChange={(value: "Cash" | "KHQR") => setFormData({ ...formData, paymentMethod: value })}
@@ -324,8 +324,8 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Cash">Cash</SelectItem>
-                    <SelectItem value="KHQR">KHQR</SelectItem>
+                    <SelectItem value="Cash">{t("form.cash")}</SelectItem>
+                    <SelectItem value="KHQR">{t("form.khqr")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -345,7 +345,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
 
           {/* Proof Image Upload */}
           <div className="space-y-2">
-            <Label htmlFor="proofImage">Proof Image</Label>
+            <Label htmlFor="proofImage">{t("form.proofImage")}</Label>
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <Input
@@ -364,7 +364,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
                   className="flex items-center space-x-2"
                 >
                   <Upload className="w-4 h-4" />
-                  <span>{uploading ? "Uploading..." : "Upload Image"}</span>
+                  <span>{uploading ? t("form.uploading") : t("form.uploadImage")}</span>
                 </Button>
               </div>
 

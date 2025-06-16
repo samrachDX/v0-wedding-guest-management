@@ -123,7 +123,7 @@ export default function GuestDialog({ open, onOpenChange, guest, onSaved }: Gues
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="guestType">Guest Type *</Label>
+            <Label htmlFor="guestType">{t("form.guestType")} *</Label>
             <Select
               value={formData.guestType}
               onValueChange={(value: "Groom Side" | "Bride Side") => setFormData({ ...formData, guestType: value })}
@@ -132,13 +132,13 @@ export default function GuestDialog({ open, onOpenChange, guest, onSaved }: Gues
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Groom Side">Groom Side</SelectItem>
-                <SelectItem value="Bride Side">Bride Side</SelectItem>
+                <SelectItem value="Groom Side">{t("form.groomSide")}</SelectItem>
+                <SelectItem value="Bride Side">{t("form.brideSide")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">{t("form.notes")}</Label>
             <Textarea
               id="notes"
               value={formData.notes}

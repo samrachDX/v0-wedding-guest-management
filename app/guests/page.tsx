@@ -147,8 +147,8 @@ export default function GuestsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="Groom Side">Groom Side</SelectItem>
-                  <SelectItem value="Bride Side">Bride Side</SelectItem>
+                  <SelectItem value="Groom Side">{t("form.groomSide")}</SelectItem>
+                  <SelectItem value="Bride Side">{t("form.brideSide")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -168,8 +168,8 @@ export default function GuestsPage() {
                     <th className="text-left py-3 px-4">ID</th>
                     <th className="text-left py-3 px-4">{t("guests.name")}</th>
                     <th className="text-left py-3 px-4">{t("guests.phone")}</th>
-                    <th className="text-left py-3 px-4">Guest Type</th>
-                    <th className="text-left py-3 px-4">Notes</th>
+                    <th className="text-left py-3 px-4">{t("form.guestType")}</th>
+                    <th className="text-left py-3 px-4">{t("form.notes")}</th>
                     <th className="text-left py-3 px-4">{t("guests.actions")}</th>
                   </tr>
                 </thead>
@@ -185,7 +185,7 @@ export default function GuestsPage() {
                             guest.guestType === "Groom Side" ? "bg-blue-100 text-blue-800" : "bg-pink-100 text-pink-800"
                           }
                         >
-                          {guest.guestType}
+                          {guest.guestType === "Groom Side" ? t("form.groomSide") : t("form.brideSide")}
                         </Badge>
                       </td>
                       <td className="py-3 px-4">{guest.notes || "-"}</td>
