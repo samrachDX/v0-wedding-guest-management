@@ -172,11 +172,11 @@ const translations = {
     "guests.brideSide": "ភ្ញៀវកូនស្រី",
     "guests.guestType": "ប្រភេទភ្ញៀវ",
     "guests.notes": "កំណត់ចំណាំ",
-    "guests.giftStatus": "ស្ថានភាពអំណោយ",
-    "guests.hasGift": "មានអំណោយ",
+    "guests.giftStatus": "ស្ថានភាពចំណងដៃ",
+    "guests.hasGift": "មានចំណងដៃ",
     "guests.noGift": "គ្មានអំណោយ",
-    "guests.withGifts": "មានអំណោយ",
-    "guests.withoutGifts": "គ្មានអំណោយ",
+    "guests.withGifts": "មានចំណងដៃ",
+    "guests.withoutGifts": "គ្មានចំណងដៃ",
     "guests.allGuests": "ភ្ញៀវទាំងអស់",
 
     // Gifts
