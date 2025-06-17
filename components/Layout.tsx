@@ -9,7 +9,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { LayoutDashboard, Users, Gift, Download, LogOut, Languages } from "lucide-react"
+import { LayoutDashboard, Users, Gift, Download, LogOut, Languages, Settings } from "lucide-react"
 
 interface LayoutProps {
   children: React.ReactNode
@@ -73,6 +73,13 @@ export default function Layout({ children }: LayoutProps) {
                 >
                   <Download className="w-4 h-4" />
                   <span>{t("nav.export")}</span>
+                </Link>
+                <Link
+                  href="/settings"
+                  className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>{t("nav.settings")}</span>
                 </Link>
               </div>
             </div>

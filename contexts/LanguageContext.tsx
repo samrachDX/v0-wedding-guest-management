@@ -19,6 +19,7 @@ const translations = {
     "nav.gifts": "Gifts",
     "nav.export": "Export",
     "nav.logout": "Logout",
+    "nav.settings": "Settings",
 
     // Dashboard
     "dashboard.title": "Wedding Dashboard",
@@ -131,6 +132,7 @@ const translations = {
     "nav.gifts": "អំណោយ",
     "nav.export": "នាំចេញ",
     "nav.logout": "ចាកចេញ",
+    "nav.settings": "ការកំណត់",
 
     // Dashboard
     "dashboard.title": "ផ្ទាំងគ្រប់គ្រងអាពាហ៍ពិពាហ៍",

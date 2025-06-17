@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { Plus, Search, Edit, Trash2, Eye, RefreshCw, Bug } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Eye, RefreshCw } from "lucide-react"
 
 interface Gift {
   _id: string
@@ -39,8 +39,6 @@ export default function GiftsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [currencyFilter, setCurrencyFilter] = useState("all")
-  const [debugInfo, setDebugInfo] = useState<any>(null)
-  const [showDebug, setShowDebug] = useState(false)
   const { toast } = useToast()
   const { t, language } = useLanguage()
 
@@ -93,47 +91,6 @@ export default function GiftsPage() {
     } finally {
       setLoading(false)
       setRefreshing(false)
-    }
-  }
-
-  const fetchDebugInfo = async () => {
-    try {
-      const response = await fetch("/api/debug/gifts")
-      if (response.ok) {
-        const data = await response.json()
-        setDebugInfo(data)
-        setShowDebug(true)
-      }
-    } catch (error) {
-      console.error("Failed to fetch debug info:", error)
-    }
-  }
-
-  const runMigration = async () => {
-    if (!confirm("This will update all existing money gifts to have 'Cash' as the default payment method. Continue?")) {
-      return
-    }
-
-    try {
-      const response = await fetch("/api/migrate-gifts", {
-        method: "POST",
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Migration completed successfully",
-        })
-        fetchGifts() // Refresh the data
-      } else {
-        throw new Error("Migration failed")
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Migration failed",
-        variant: "destructive",
-      })
     }
   }
 
@@ -312,17 +269,6 @@ export default function GiftsPage() {
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900">{t("gifts.title")}</h1>
           <div className="flex space-x-2">
-            <Button onClick={fetchDebugInfo} variant="outline" className="flex items-center space-x-2">
-              <Bug className="w-4 h-4" />
-              <span>Debug</span>
-            </Button>
-            <Button
-              onClick={runMigration}
-              variant="outline"
-              className="flex items-center space-x-2 bg-yellow-50 hover:bg-yellow-100"
-            >
-              <span>Fix Data</span>
-            </Button>
             <Button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -338,51 +284,6 @@ export default function GiftsPage() {
             </Button>
           </div>
         </div>
-
-        {/* Debug Info Panel */}
-        {showDebug && debugInfo && (
-          <Card className="border-yellow-200 bg-yellow-50">
-            <CardHeader>
-              <CardTitle className="flex justify-between items-center">
-                Debug Information
-                <Button variant="ghost" size="sm" onClick={() => setShowDebug(false)}>
-                  ×
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <p>
-                  <strong>Total Gifts:</strong> {debugInfo.totalGifts}
-                </p>
-                <div className="max-h-60 overflow-y-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-1">Guest</th>
-                        <th className="text-left p-1">Type</th>
-                        <th className="text-left p-1">Payment Method</th>
-                        <th className="text-left p-1">Has PM</th>
-                        <th className="text-left p-1">PM Type</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {debugInfo.gifts.map((gift: any) => (
-                        <tr key={gift._id} className="border-b">
-                          <td className="p-1">{gift.guestName}</td>
-                          <td className="p-1">{gift.type}</td>
-                          <td className="p-1 font-mono">"{gift.paymentMethod}"</td>
-                          <td className="p-1">{gift.hasPaymentMethod ? "✅" : "❌"}</td>
-                          <td className="p-1">{gift.paymentMethodType}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Filters */}
         <Card>
