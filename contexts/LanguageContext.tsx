@@ -168,9 +168,9 @@ const translations = {
     "guests.notes": "កំណត់ចំណាំ",
 
     // Gifts
-    "gifts.title": "គ្រប់គ្រងអំណោយ",
-    "gifts.addGift": "បន្ថែមអំណោយ",
-    "gifts.editGift": "កែប្រែអំណោយ",
+    "gifts.title": "គ្រប់គ្រងចំណងដៃ",
+    "gifts.addGift": "បន្ថែមចំណងដៃ",
+    "gifts.editGift": "កែប្រែចំណងដៃ",
     "gifts.guestId": "លេខសម្គាល់ភ្ញៀវ",
     "gifts.guestName": "ឈ្មោះភ្ញៀវ",
     "gifts.type": "ប្រភេទ",
@@ -200,7 +200,7 @@ const translations = {
     "form.saving": "កំពុងរក្សាទុក...",
     "form.updating": "កំពុងធ្វើបច្ចុប្បន្នភាព...",
     "form.currency": "រូបិយប័ណ្ណ",
-    "form.paymentMethod": "វិធីចង់ដៃ",
+    "form.paymentMethod": "វិធីបង់ប្រាក់",
     "form.cash": "សាច់ប្រាក់",
     "form.khqr": "KHQR",
     "form.proofImage": "រូបភាពភស្តុតាង",

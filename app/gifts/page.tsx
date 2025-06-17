@@ -223,7 +223,7 @@ export default function GiftsPage() {
     if (!method) return "-"
 
     if (language === "km") {
-      return method === "Cash" ? "សាច់ប្រាក់" : "ខេអាកូអារ"
+      return method === "Cash" ? "សាច់ប្រាក់" : "KHQR"
     }
     return method
   }
