@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
           gift.paymentMethod && language === "km"
             ? gift.paymentMethod === "Cash"
               ? "សាច់ប្រាក់"
-              : "ខេអាកូអារ"
+              : "KHQR"
             : gift.paymentMethod || ""
 
         return [
