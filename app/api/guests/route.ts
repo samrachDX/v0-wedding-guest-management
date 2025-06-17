@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get("search")
     const guestType = searchParams.get("guestType")
+    const giftFilter = searchParams.get("giftFilter")
 
     const query: any = { userId: session.user.id }
 
@@ -31,7 +32,21 @@ export async function GET(request: NextRequest) {
       query.guestType = guestType
     }
 
-    const guests = await Guest.find(query).sort({ guestId: 1 })
+    let guests = await Guest.find(query).sort({ guestId: 1 })
+
+    // Filter by gift status if specified
+    if (giftFilter && giftFilter !== "all") {
+      // Get guest IDs that have gifts
+      const Gift = require("@/lib/models/Gift").default
+      const guestsWithGifts = await Gift.distinct("guestId", { userId: session.user.id })
+      const guestIdsWithGifts = new Set(guestsWithGifts)
+
+      if (giftFilter === "with-gifts") {
+        guests = guests.filter((guest) => guestIdsWithGifts.has(guest.guestId))
+      } else if (giftFilter === "without-gifts") {
+        guests = guests.filter((guest) => !guestIdsWithGifts.has(guest.guestId))
+      }
+    }
 
     return NextResponse.json(guests)
   } catch (error) {

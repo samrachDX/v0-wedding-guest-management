@@ -53,6 +53,12 @@ const translations = {
     "guests.brideSide": "Bride Side",
     "guests.guestType": "Guest Type",
     "guests.notes": "Notes",
+    "guests.giftStatus": "Gift Status",
+    "guests.hasGift": "Has Gift",
+    "guests.noGift": "No Gift",
+    "guests.withGifts": "With Gifts",
+    "guests.withoutGifts": "Without Gifts",
+    "guests.allGuests": "All Guests",
 
     // Gifts
     "gifts.title": "Gift Management",
@@ -166,6 +172,12 @@ const translations = {
     "guests.brideSide": "ភ្ញៀវកូនស្រី",
     "guests.guestType": "ប្រភេទភ្ញៀវ",
     "guests.notes": "កំណត់ចំណាំ",
+    "guests.giftStatus": "ស្ថានភាពអំណោយ",
+    "guests.hasGift": "មានអំណោយ",
+    "guests.noGift": "គ្មានអំណោយ",
+    "guests.withGifts": "មានអំណោយ",
+    "guests.withoutGifts": "គ្មានអំណោយ",
+    "guests.allGuests": "ភ្ញៀវទាំងអស់",
 
     // Gifts
     "gifts.title": "គ្រប់គ្រងចំណងដៃ",

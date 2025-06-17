@@ -33,16 +33,37 @@ export default function GuestsPage() {
   const { toast } = useToast()
   const { t } = useLanguage()
   const router = useRouter()
+  const { language } = useLanguage()
+
+  const [giftFilter, setGiftFilter] = useState("all")
+  const [guestsWithGifts, setGuestsWithGifts] = useState<Set<number>>(new Set())
+
+  useEffect(() => {
+    fetchGuestGiftData()
+  }, [])
+
+  const fetchGuestGiftData = async () => {
+    try {
+      const response = await fetch("/api/guests/with-gifts")
+      if (response.ok) {
+        const data = await response.json()
+        setGuestsWithGifts(new Set(data.guestIds))
+      }
+    } catch (error) {
+      console.error("Error fetching guest gift data:", error)
+    }
+  }
 
   useEffect(() => {
     fetchGuests()
-  }, [search, statusFilter])
+  }, [search, statusFilter, giftFilter])
 
   const fetchGuests = async () => {
     try {
       const params = new URLSearchParams()
       if (search) params.append("search", search)
       if (statusFilter !== "all") params.append("guestType", statusFilter)
+      if (giftFilter !== "all") params.append("giftFilter", giftFilter)
 
       const response = await fetch(`/api/guests?${params}`)
       if (response.ok) {
@@ -102,6 +123,7 @@ export default function GuestsPage() {
 
   const handleGuestSaved = () => {
     setDialogOpen(false)
+    fetchGuestGiftData() // Add this line
     // Refresh the entire page to get latest data
     router.refresh()
     window.location.reload()
@@ -162,6 +184,16 @@ export default function GuestsPage() {
                   <SelectItem value="Bride Side">{t("form.brideSide")}</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={giftFilter} onValueChange={setGiftFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Filter by gifts" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("guests.allGuests")}</SelectItem>
+                  <SelectItem value="with-gifts">{t("guests.withGifts")}</SelectItem>
+                  <SelectItem value="without-gifts">{t("guests.withoutGifts")}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -180,6 +212,7 @@ export default function GuestsPage() {
                     <th className="text-left py-3 px-4">{t("guests.name")}</th>
                     <th className="text-left py-3 px-4">{t("guests.phone")}</th>
                     <th className="text-left py-3 px-4">{t("form.guestType")}</th>
+                    <th className="text-left py-3 px-4">{t("guests.giftStatus")}</th>
                     <th className="text-left py-3 px-4">{t("form.notes")}</th>
                     <th className="text-left py-3 px-4">{t("guests.actions")}</th>
                   </tr>
@@ -198,6 +231,15 @@ export default function GuestsPage() {
                         >
                           {guest.guestType === "Groom Side" ? t("form.groomSide") : t("form.brideSide")}
                         </Badge>
+                      </td>
+                      <td className="py-3 px-4">
+                        {guestsWithGifts.has(guest.guestId) ? (
+                          <Badge className="bg-green-100 text-green-800">{t("guests.hasGift")}</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-gray-600">
+                            {t("guests.noGift")}
+                          </Badge>
+                        )}
                       </td>
                       <td className="py-3 px-4">{guest.notes || "-"}</td>
                       <td className="py-3 px-4">
