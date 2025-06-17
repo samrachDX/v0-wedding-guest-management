@@ -52,7 +52,7 @@ export default function DashboardPage() {
 
   const getLocalizedGuestType = (guestType: string) => {
     if (language === "km") {
-      return guestType === "Groom Side" ? "ភាគីកូនប្រុស" : "ភាគីកូនស្រី"
+      return guestType === "Groom Side" ? "ភ្ញៀវកូនប្រុស" : "ភ្ញៀវកូនស្រី"
     }
     return guestType
   }
