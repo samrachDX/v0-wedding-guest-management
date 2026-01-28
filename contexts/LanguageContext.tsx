@@ -90,6 +90,9 @@ const translations = {
     "gifts.lastAddedDescription": "This gift was just added and will appear here in real-time",
     "gifts.noRecentGift": "No recent gift added yet",
     "gifts.addGiftPrompt": "Add a gift to see it appear here",
+    "gifts.recentNotifications": "Recent Gift Notifications",
+    "gifts.showing": "Showing",
+    "gifts.latestGifts": "latest gifts",
 
     // Forms
     "form.save": "Save",
@@ -216,6 +219,9 @@ const translations = {
     "gifts.lastAddedDescription": "ចំណងដៃនេះទើបតែបន្ថែម ហើយនឹងបង្ហាញនៅទីនេះភ្លាមៗ",
     "gifts.noRecentGift": "មិនទាន់មានចំណងដៃថ្មីបន្ថែមនៅឡើយទេ",
     "gifts.addGiftPrompt": "បន្ថែមចំណងដៃដើម្បីឃើញវានៅទីនេះ",
+    "gifts.recentNotifications": "ការជូនដំណឹងចំណងដៃថ្មីៗ",
+    "gifts.showing": "កំពុងបង្ហាញ",
+    "gifts.latestGifts": "ចំណងដៃចុងក្រោយ",
 
     // Forms
     "form.save": "រក្សាទុក",
