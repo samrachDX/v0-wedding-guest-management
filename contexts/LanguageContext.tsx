@@ -114,6 +114,7 @@ const translations = {
     "form.notes": "Notes",
     "form.uploadImage": "Upload Image",
     "form.uploading": "Uploading...",
+    "form.compressing": "Compressing...",
     "form.selectGuest": "Please select a guest",
 
     // Common
@@ -244,6 +245,7 @@ const translations = {
     "form.notes": "កំណត់ចំណាំ",
     "form.uploadImage": "ផ្ទុកឡើងរូបភាព",
     "form.uploading": "កំពុងផ្ទុកឡើង...",
+    "form.compressing": "កំពុងបង្ហាប់រូបភាព...",
     "form.selectGuest": "សូមជ្រើសរើសភ្ញៀវ",
 
     // Common
