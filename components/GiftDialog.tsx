@@ -43,11 +43,48 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
     selectedGuest: null as Guest | null,
     type: "money" as "money" | "item",
     amount: "",
+    displayAmount: "", // Formatted amount with commas
     currency: "USD" as "USD" | "KHR",
     paymentMethod: "Cash" as "Cash" | "KHQR",
     description: "",
     proofImage: "",
   })
+
+  // Format number with commas
+  const formatNumberWithCommas = (value: string): string => {
+    // Remove all non-digit characters except decimal point
+    const cleanValue = value.replace(/[^\d.]/g, "")
+    
+    // Split by decimal point
+    const parts = cleanValue.split(".")
+    
+    // Format the integer part with commas
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+    
+    // Join back with decimal if exists
+    return parts.join(".")
+  }
+
+  // Parse formatted number back to raw number string
+  const parseFormattedNumber = (value: string): string => {
+    return value.replace(/,/g, "")
+  }
+
+  // Handle amount change with formatting
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value
+    const rawValue = parseFormattedNumber(inputValue)
+    
+    // Validate that it's a valid number
+    if (rawValue === "" || /^\d*\.?\d*$/.test(rawValue)) {
+      const formattedValue = formatNumberWithCommas(rawValue)
+      setFormData({ 
+        ...formData, 
+        amount: rawValue,
+        displayAmount: formattedValue 
+      })
+    }
+  }
   const [searchResults, setSearchResults] = useState<Guest[]>([])
   const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -60,11 +97,13 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
     if (open) {
       if (gift) {
         // Editing existing gift
+        const amountStr = gift.amount?.toString() || ""
         setFormData({
           guestSearch: `${gift.guestId} - ${gift.guestName}`,
           selectedGuest: { guestId: gift.guestId, name: gift.guestName },
           type: gift.type,
-          amount: gift.amount?.toString() || "",
+          amount: amountStr,
+          displayAmount: formatNumberWithCommas(amountStr),
           currency: (gift.currency as "USD" | "KHR") || "USD",
           paymentMethod: (gift.paymentMethod as "Cash" | "KHQR") || "Cash",
           description: gift.description || "",
@@ -77,6 +116,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
           selectedGuest: null,
           type: "money",
           amount: "",
+          displayAmount: "",
           currency: "USD",
           paymentMethod: "Cash",
           description: "",
@@ -342,11 +382,13 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
                   <Label htmlFor="amount">{t("gifts.amount")} *</Label>
                   <Input
                     id="amount"
-                    type="number"
-                    step="0.01"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.displayAmount}
+                    onChange={handleAmountChange}
+                    placeholder="0"
                     required
+                    className="text-right font-mono text-lg"
                   />
                 </div>
                 <div className="space-y-2">
