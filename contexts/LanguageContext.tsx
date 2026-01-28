@@ -83,6 +83,13 @@ const translations = {
     "gifts.filterByCurrency": "Filter by currency",
     "gifts.allTypes": "All Types",
     "gifts.allCurrencies": "All Currencies",
+    "gifts.allGifts": "All Gifts",
+    "gifts.recentlyAdded": "Recently Added",
+    "gifts.new": "New",
+    "gifts.lastAddedGift": "Last Added Gift",
+    "gifts.lastAddedDescription": "This gift was just added and will appear here in real-time",
+    "gifts.noRecentGift": "No recent gift added yet",
+    "gifts.addGiftPrompt": "Add a gift to see it appear here",
 
     // Forms
     "form.save": "Save",
@@ -202,6 +209,13 @@ const translations = {
     "gifts.filterByCurrency": "តម្រងតាមរូបិយប័ណ្ណ",
     "gifts.allTypes": "ប្រភេទទាំងអស់",
     "gifts.allCurrencies": "រូបិយប័ណ្ណទាំងអស់",
+    "gifts.allGifts": "ចំណងដៃទាំងអស់",
+    "gifts.recentlyAdded": "បន្ថែមថ្មីៗ",
+    "gifts.new": "ថ្មី",
+    "gifts.lastAddedGift": "ចំណងដៃដែលបន្ថែមចុងក្រោយ",
+    "gifts.lastAddedDescription": "ចំណងដៃនេះទើបតែបន្ថែម ហើយនឹងបង្ហាញនៅទីនេះភ្លាមៗ",
+    "gifts.noRecentGift": "មិនទាន់មានចំណងដៃថ្មីបន្ថែមនៅឡើយទេ",
+    "gifts.addGiftPrompt": "បន្ថែមចំណងដៃដើម្បីឃើញវានៅទីនេះ",
 
     // Forms
     "form.save": "រក្សាទុក",

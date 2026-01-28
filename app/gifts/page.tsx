@@ -8,11 +8,11 @@ import GiftDialog from "@/components/GiftDialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { Plus, Search, Edit, Trash2, Eye, RefreshCw } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Eye, RefreshCw, List, Clock, Gift as GiftIcon } from "lucide-react"
 
 interface Gift {
   _id: string
@@ -27,6 +27,8 @@ interface Gift {
   createdAt: string
 }
 
+type TabType = "all" | "recent"
+
 export default function GiftsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -39,6 +41,8 @@ export default function GiftsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [currencyFilter, setCurrencyFilter] = useState("all")
+  const [activeTab, setActiveTab] = useState<TabType>("all")
+  const [lastAddedGift, setLastAddedGift] = useState<Gift | null>(null)
   const { toast } = useToast()
   const { t, language } = useLanguage()
 
@@ -63,21 +67,18 @@ export default function GiftsPage() {
       const response = await fetch("/api/gifts")
       if (response.ok) {
         const data = await response.json()
-        console.log("=== FRONTEND RECEIVED GIFTS ===")
-        data.forEach((gift: Gift, index: number) => {
-          console.log(`Frontend Gift ${index + 1}:`, {
-            id: gift._id,
-            guestName: gift.guestName,
-            type: gift.type,
-            amount: gift.amount,
-            currency: gift.currency,
-            paymentMethod: gift.paymentMethod,
-            hasPaymentMethod: !!gift.paymentMethod,
-            paymentMethodType: typeof gift.paymentMethod,
-          })
-        })
-        console.log("=== END FRONTEND DEBUG ===")
         setGifts(data)
+        
+        // Set the most recent gift if available
+        if (data.length > 0) {
+          const sortedGifts = [...data].sort((a: Gift, b: Gift) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+          // Only set lastAddedGift on initial load if it's not already set
+          if (!lastAddedGift) {
+            setLastAddedGift(sortedGifts[0])
+          }
+        }
       } else {
         throw new Error("Failed to fetch gifts")
       }
@@ -161,10 +162,27 @@ export default function GiftsPage() {
     }
   }
 
-  const handleDialogSaved = () => {
+  const handleDialogSaved = async () => {
     setDialogOpen(false)
     setEditingGift(null)
-    fetchGifts() // Refresh data instead of full page reload
+    await fetchGifts() // Refresh data instead of full page reload
+    
+    // After fetching, set the last added gift and switch to recent tab if adding new
+    if (!editingGift) {
+      // Get the most recent gift (first in the sorted list)
+      const response = await fetch("/api/gifts")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.length > 0) {
+          // Sort by createdAt to get the most recent
+          const sortedGifts = [...data].sort((a: Gift, b: Gift) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+          setLastAddedGift(sortedGifts[0])
+          setActiveTab("recent")
+        }
+      }
+    }
   }
 
   const handleViewProof = (proofImage: string) => {
@@ -285,6 +303,141 @@ export default function GiftsPage() {
           </div>
         </div>
 
+        {/* Tabs */}
+        <div className="flex space-x-1 border-b">
+          <button
+            onClick={() => setActiveTab("all")}
+            className={`flex items-center space-x-2 px-4 py-2 border-b-2 transition-colors ${
+              activeTab === "all"
+                ? "border-primary text-primary font-medium"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <List className="w-4 h-4" />
+            <span>{t("gifts.allGifts")}</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("recent")}
+            className={`flex items-center space-x-2 px-4 py-2 border-b-2 transition-colors ${
+              activeTab === "recent"
+                ? "border-primary text-primary font-medium"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Clock className="w-4 h-4" />
+            <span>{t("gifts.recentlyAdded")}</span>
+            {lastAddedGift && (
+              <Badge variant="secondary" className="ml-1 animate-pulse">
+                {t("gifts.new")}
+              </Badge>
+            )}
+          </button>
+        </div>
+
+        {/* Recent Tab Content */}
+        {activeTab === "recent" && (
+          <Card className="border-2 border-primary/20 bg-primary/5">
+            <CardHeader>
+              <div className="flex items-center space-x-2">
+                <GiftIcon className="w-5 h-5 text-primary" />
+                <CardTitle>{t("gifts.lastAddedGift")}</CardTitle>
+              </div>
+              <CardDescription>{t("gifts.lastAddedDescription")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {lastAddedGift ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">{t("gifts.guestId")}</p>
+                      <p className="font-medium">{lastAddedGift.guestId}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">{t("gifts.guestName")}</p>
+                      <p className="font-medium">{lastAddedGift.guestName}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">{t("gifts.type")}</p>
+                      <Badge variant={lastAddedGift.type === "money" ? "default" : "secondary"}>
+                        {getLocalizedType(lastAddedGift.type)}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">{t("gifts.amount")}</p>
+                      <p className="font-medium text-lg">
+                        {lastAddedGift.type === "money" 
+                          ? formatAmount(lastAddedGift.amount, lastAddedGift.currency) 
+                          : "-"}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">{t("gifts.paymentMethod")}</p>
+                      {lastAddedGift.type === "money" && lastAddedGift.paymentMethod ? (
+                        <Badge variant={lastAddedGift.paymentMethod === "Cash" ? "outline" : "default"}>
+                          {getLocalizedPaymentMethod(lastAddedGift.paymentMethod)}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">{t("gifts.description")}</p>
+                      <p className="font-medium">{lastAddedGift.description || "-"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">{t("gifts.date")}</p>
+                      <p className="font-medium">{new Date(lastAddedGift.createdAt).toLocaleString()}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">{t("gifts.proof")}</p>
+                      {lastAddedGift.proofImage ? (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleViewProof(lastAddedGift.proofImage!)}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          {t("common.view")}
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-2 pt-4 border-t">
+                    <Button variant="outline" size="sm" onClick={() => handleEditGift(lastAddedGift)}>
+                      <Edit className="w-4 h-4 mr-1" />
+                      {t("common.edit")}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleDeleteGift(lastAddedGift._id)}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      {t("common.delete")}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <GiftIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>{t("gifts.noRecentGift")}</p>
+                  <p className="text-sm mt-1">{t("gifts.addGiftPrompt")}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* All Gifts Tab Content */}
+        {activeTab === "all" && (
+          <>
         {/* Filters */}
         <Card>
           <CardHeader>
@@ -402,6 +555,9 @@ export default function GiftsPage() {
             </div>
           </CardContent>
         </Card>
+
+        </>
+        )}
 
         <GiftDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={handleDialogSaved} gift={editingGift} />
       </div>
