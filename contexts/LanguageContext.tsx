@@ -93,6 +93,7 @@ const translations = {
     "gifts.recentNotifications": "Recent Gift Notifications",
     "gifts.showing": "Showing",
     "gifts.latestGifts": "latest gifts",
+    "gifts.openDisplay": "Open Display",
 
     // Forms
     "form.save": "Save",
@@ -222,6 +223,7 @@ const translations = {
     "gifts.recentNotifications": "ការជូនដំណឹងចំណងដៃថ្មីៗ",
     "gifts.showing": "កំពុងបង្ហាញ",
     "gifts.latestGifts": "ចំណងដៃចុងក្រោយ",
+    "gifts.openDisplay": "បើកអេក្រង់បង្ហាញ",
 
     // Forms
     "form.save": "រក្សាទុក",

@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { Plus, Search, Edit, Trash2, Eye, RefreshCw, List, Clock, Gift as GiftIcon } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Eye, RefreshCw, List, Clock, Gift as GiftIcon, Monitor } from "lucide-react"
 
 interface Gift {
   _id: string
@@ -283,6 +283,14 @@ export default function GiftsPage() {
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
               <span>{refreshing ? t("common.loading") : "Refresh"}</span>
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => window.open("/gifts/display", "_blank", "width=800,height=600")}
+              className="flex items-center space-x-2"
+            >
+              <Monitor className="w-4 h-4" />
+              <span>{t("gifts.openDisplay")}</span>
             </Button>
             <Button onClick={handleAddGift} className="flex items-center space-x-2">
               <Plus className="w-4 h-4" />
