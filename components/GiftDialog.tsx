@@ -43,28 +43,125 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
     selectedGuest: null as Guest | null,
     type: "money" as "money" | "item",
     amount: "",
+    displayAmount: "", // Formatted amount with commas
     currency: "USD" as "USD" | "KHR",
     paymentMethod: "Cash" as "Cash" | "KHQR",
     description: "",
     proofImage: "",
   })
+
+  // Format number with commas
+  const formatNumberWithCommas = (value: string): string => {
+    // Remove all non-digit characters except decimal point
+    const cleanValue = value.replace(/[^\d.]/g, "")
+    
+    // Split by decimal point
+    const parts = cleanValue.split(".")
+    
+    // Format the integer part with commas
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+    
+    // Join back with decimal if exists
+    return parts.join(".")
+  }
+
+  // Parse formatted number back to raw number string
+  const parseFormattedNumber = (value: string): string => {
+    return value.replace(/,/g, "")
+  }
+
+  // Handle amount change with formatting
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value
+    const rawValue = parseFormattedNumber(inputValue)
+    
+    // Validate that it's a valid number
+    if (rawValue === "" || /^\d*\.?\d*$/.test(rawValue)) {
+      const formattedValue = formatNumberWithCommas(rawValue)
+      setFormData({ 
+        ...formData, 
+        amount: rawValue,
+        displayAmount: formattedValue 
+      })
+    }
+  }
   const [searchResults, setSearchResults] = useState<Guest[]>([])
   const [uploading, setUploading] = useState(false)
+  const [compressing, setCompressing] = useState(false)
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
   const { t } = useLanguage()
 
   const isEditing = !!gift
 
+  // Compress and resize image before upload
+  const compressImage = (file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.7): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = (event) => {
+        const img = new Image()
+        img.crossOrigin = "anonymous"
+        img.src = event.target?.result as string
+        img.onload = () => {
+          // Calculate new dimensions while maintaining aspect ratio
+          let { width, height } = img
+          
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width
+            width = maxWidth
+          }
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height
+            height = maxHeight
+          }
+
+          // Create canvas and draw resized image
+          const canvas = document.createElement("canvas")
+          canvas.width = width
+          canvas.height = height
+          
+          const ctx = canvas.getContext("2d")
+          if (!ctx) {
+            reject(new Error("Failed to get canvas context"))
+            return
+          }
+          
+          // Use better image smoothing for quality
+          ctx.imageSmoothingEnabled = true
+          ctx.imageSmoothingQuality = "high"
+          ctx.drawImage(img, 0, 0, width, height)
+
+          // Convert to blob with compression
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob)
+              } else {
+                reject(new Error("Failed to compress image"))
+              }
+            },
+            "image/jpeg",
+            quality
+          )
+        }
+        img.onerror = () => reject(new Error("Failed to load image"))
+      }
+      reader.onerror = () => reject(new Error("Failed to read file"))
+    })
+  }
+
   useEffect(() => {
     if (open) {
       if (gift) {
         // Editing existing gift
+        const amountStr = gift.amount?.toString() || ""
         setFormData({
           guestSearch: `${gift.guestId} - ${gift.guestName}`,
           selectedGuest: { guestId: gift.guestId, name: gift.guestName },
           type: gift.type,
-          amount: gift.amount?.toString() || "",
+          amount: amountStr,
+          displayAmount: formatNumberWithCommas(amountStr),
           currency: (gift.currency as "USD" | "KHR") || "USD",
           paymentMethod: (gift.paymentMethod as "Cash" | "KHQR") || "Cash",
           description: gift.description || "",
@@ -77,6 +174,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
           selectedGuest: null,
           type: "money",
           amount: "",
+          displayAmount: "",
           currency: "USD",
           paymentMethod: "Cash",
           description: "",
@@ -113,10 +211,34 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
     const file = event.target.files?.[0]
     if (!file) return
 
+    // Check if it's an image
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Error",
+        description: "Please select an image file",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setCompressing(true)
     setUploading(true)
+    
     try {
+      // Compress the image first
+      const originalSize = (file.size / 1024).toFixed(1)
+      const compressedBlob = await compressImage(file)
+      const compressedSize = (compressedBlob.size / 1024).toFixed(1)
+      
+      setCompressing(false)
+      
+      // Create a new file from the compressed blob
+      const compressedFile = new File([compressedBlob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+        type: "image/jpeg",
+      })
+
       const formDataUpload = new FormData()
-      formDataUpload.append("file", file)
+      formDataUpload.append("file", compressedFile)
 
       const response = await fetch("/api/upload", {
         method: "POST",
@@ -128,7 +250,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
         setFormData((prev) => ({ ...prev, proofImage: data.url }))
         toast({
           title: "Success",
-          description: "Image uploaded successfully",
+          description: `Image compressed (${originalSize}KB -> ${compressedSize}KB) and uploaded`,
         })
       } else {
         const error = await response.json()
@@ -141,6 +263,7 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
         variant: "destructive",
       })
     } finally {
+      setCompressing(false)
       setUploading(false)
     }
   }
@@ -342,11 +465,13 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
                   <Label htmlFor="amount">{t("gifts.amount")} *</Label>
                   <Input
                     id="amount"
-                    type="number"
-                    step="0.01"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.displayAmount}
+                    onChange={handleAmountChange}
+                    placeholder="0"
                     required
+                    className="text-right font-mono text-lg"
                   />
                 </div>
                 <div className="space-y-2">
@@ -413,11 +538,17 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
                   type="button"
                   variant="outline"
                   onClick={() => document.getElementById("file-upload")?.click()}
-                  disabled={uploading}
+                  disabled={uploading || compressing}
                   className="flex items-center space-x-2"
                 >
                   <Upload className="w-4 h-4" />
-                  <span>{uploading ? t("form.uploading") : t("form.uploadImage")}</span>
+                  <span>
+                    {compressing 
+                      ? t("form.compressing") 
+                      : uploading 
+                        ? t("form.uploading") 
+                        : t("form.uploadImage")}
+                  </span>
                 </Button>
                 {formData.proofImage && (
                   <Button type="button" variant="outline" onClick={handleViewProof}>

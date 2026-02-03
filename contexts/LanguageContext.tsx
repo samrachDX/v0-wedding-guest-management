@@ -83,6 +83,17 @@ const translations = {
     "gifts.filterByCurrency": "Filter by currency",
     "gifts.allTypes": "All Types",
     "gifts.allCurrencies": "All Currencies",
+    "gifts.allGifts": "All Gifts",
+    "gifts.recentlyAdded": "Recently Added",
+    "gifts.new": "New",
+    "gifts.lastAddedGift": "Last Added Gift",
+    "gifts.lastAddedDescription": "This gift was just added and will appear here in real-time",
+    "gifts.noRecentGift": "No recent gift added yet",
+    "gifts.addGiftPrompt": "Add a gift to see it appear here",
+    "gifts.recentNotifications": "Recent Gift Notifications",
+    "gifts.showing": "Showing",
+    "gifts.latestGifts": "latest gifts",
+    "gifts.openDisplay": "Open Display",
 
     // Forms
     "form.save": "Save",
@@ -103,6 +114,7 @@ const translations = {
     "form.notes": "Notes",
     "form.uploadImage": "Upload Image",
     "form.uploading": "Uploading...",
+    "form.compressing": "Compressing...",
     "form.selectGuest": "Please select a guest",
 
     // Common
@@ -202,6 +214,17 @@ const translations = {
     "gifts.filterByCurrency": "តម្រងតាមរូបិយប័ណ្ណ",
     "gifts.allTypes": "ប្រភេទទាំងអស់",
     "gifts.allCurrencies": "រូបិយប័ណ្ណទាំងអស់",
+    "gifts.allGifts": "ចំណងដៃទាំងអស់",
+    "gifts.recentlyAdded": "បន្ថែមថ្មីៗ",
+    "gifts.new": "ថ្មី",
+    "gifts.lastAddedGift": "ចំណងដៃដែលបន្ថែមចុងក្រោយ",
+    "gifts.lastAddedDescription": "ចំណងដៃនេះទើបតែបន្ថែម ហើយនឹងបង្ហាញនៅទីនេះភ្លាមៗ",
+    "gifts.noRecentGift": "មិនទាន់មានចំណងដៃថ្មីបន្ថែមនៅឡើយទេ",
+    "gifts.addGiftPrompt": "បន្ថែមចំណងដៃដើម្បីឃើញវានៅទីនេះ",
+    "gifts.recentNotifications": "ការជូនដំណឹងចំណងដៃថ្មីៗ",
+    "gifts.showing": "កំពុងបង្ហាញ",
+    "gifts.latestGifts": "ចំណងដៃចុងក្រោយ",
+    "gifts.openDisplay": "បើកអេក្រង់បង្ហាញ",
 
     // Forms
     "form.save": "រក្សាទុក",
@@ -222,6 +245,7 @@ const translations = {
     "form.notes": "កំណត់ចំណាំ",
     "form.uploadImage": "ផ្ទុកឡើងរូបភាព",
     "form.uploading": "កំពុងផ្ទុកឡើង...",
+    "form.compressing": "កំពុងបង្ហាប់រូបភាព...",
     "form.selectGuest": "សូមជ្រើសរើសភ្ញៀវ",
 
     // Common

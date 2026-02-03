@@ -8,11 +8,11 @@ import GiftDialog from "@/components/GiftDialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { Plus, Search, Edit, Trash2, Eye, RefreshCw } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Eye, RefreshCw, List, Clock, Gift as GiftIcon, Monitor } from "lucide-react"
 
 interface Gift {
   _id: string
@@ -27,6 +27,8 @@ interface Gift {
   createdAt: string
 }
 
+type TabType = "all" | "recent"
+
 export default function GiftsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -39,6 +41,9 @@ export default function GiftsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [currencyFilter, setCurrencyFilter] = useState("all")
+  const [activeTab, setActiveTab] = useState<TabType>("all")
+  const [recentGifts, setRecentGifts] = useState<Gift[]>([])
+  const [newGiftCount, setNewGiftCount] = useState(0)
   const { toast } = useToast()
   const { t, language } = useLanguage()
 
@@ -63,21 +68,15 @@ export default function GiftsPage() {
       const response = await fetch("/api/gifts")
       if (response.ok) {
         const data = await response.json()
-        console.log("=== FRONTEND RECEIVED GIFTS ===")
-        data.forEach((gift: Gift, index: number) => {
-          console.log(`Frontend Gift ${index + 1}:`, {
-            id: gift._id,
-            guestName: gift.guestName,
-            type: gift.type,
-            amount: gift.amount,
-            currency: gift.currency,
-            paymentMethod: gift.paymentMethod,
-            hasPaymentMethod: !!gift.paymentMethod,
-            paymentMethodType: typeof gift.paymentMethod,
-          })
-        })
-        console.log("=== END FRONTEND DEBUG ===")
         setGifts(data)
+        
+        // Set recent gifts (last 10, sorted by createdAt)
+        if (data.length > 0) {
+          const sortedGifts = [...data].sort((a: Gift, b: Gift) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+          setRecentGifts(sortedGifts.slice(0, 10))
+        }
       } else {
         throw new Error("Failed to fetch gifts")
       }
@@ -161,10 +160,17 @@ export default function GiftsPage() {
     }
   }
 
-  const handleDialogSaved = () => {
+  const handleDialogSaved = async () => {
+    const wasAdding = !editingGift
     setDialogOpen(false)
     setEditingGift(null)
-    fetchGifts() // Refresh data instead of full page reload
+    await fetchGifts()
+    
+    // Switch to recent tab and increment notification count when adding new gift
+    if (wasAdding) {
+      setActiveTab("recent")
+      setNewGiftCount(prev => prev + 1)
+    }
   }
 
   const handleViewProof = (proofImage: string) => {
@@ -278,6 +284,14 @@ export default function GiftsPage() {
               <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
               <span>{refreshing ? t("common.loading") : "Refresh"}</span>
             </Button>
+            <Button 
+              variant="outline"
+              onClick={() => window.open("/gifts/display", "_blank", "width=800,height=600")}
+              className="flex items-center space-x-2"
+            >
+              <Monitor className="w-4 h-4" />
+              <span>{t("gifts.openDisplay")}</span>
+            </Button>
             <Button onClick={handleAddGift} className="flex items-center space-x-2">
               <Plus className="w-4 h-4" />
               <span>{t("gifts.addGift")}</span>
@@ -285,6 +299,167 @@ export default function GiftsPage() {
           </div>
         </div>
 
+        {/* Tabs */}
+        <div className="flex space-x-1 border-b">
+          <button
+            onClick={() => setActiveTab("all")}
+            className={`flex items-center space-x-2 px-4 py-2 border-b-2 transition-colors ${
+              activeTab === "all"
+                ? "border-primary text-primary font-medium"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <List className="w-4 h-4" />
+            <span>{t("gifts.allGifts")}</span>
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("recent")
+              setNewGiftCount(0)
+            }}
+            className={`flex items-center space-x-2 px-4 py-2 border-b-2 transition-colors ${
+              activeTab === "recent"
+                ? "border-primary text-primary font-medium"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Clock className="w-4 h-4" />
+            <span>{t("gifts.recentlyAdded")}</span>
+            {newGiftCount > 0 && (
+              <Badge variant="destructive" className="ml-1 animate-pulse min-w-[20px] justify-center">
+                {newGiftCount}
+              </Badge>
+            )}
+          </button>
+        </div>
+
+        {/* Recent Tab Content - Notification Style */}
+        {activeTab === "recent" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">{t("gifts.recentNotifications")}</h2>
+              <span className="text-sm text-muted-foreground">
+                {t("gifts.showing")} {recentGifts.length} {t("gifts.latestGifts")}
+              </span>
+            </div>
+            
+            {recentGifts.length > 0 ? (
+              <div className="space-y-2">
+                {recentGifts.map((gift, index) => (
+                  <Card 
+                    key={gift._id} 
+                    className={`transition-all hover:shadow-md ${
+                      index === 0 ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20" : ""
+                    }`}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <div className={`p-2 rounded-full shrink-0 ${
+                            gift.type === "money" 
+                              ? "bg-green-100 text-green-600" 
+                              : "bg-blue-100 text-blue-600"
+                          }`}>
+                            <GiftIcon className="w-4 h-4" />
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-foreground">{gift.guestName}</span>
+                              <Badge variant="outline" className="text-xs">
+                                ID: {gift.guestId}
+                              </Badge>
+                              {index === 0 && (
+                                <Badge variant="default" className="text-xs animate-pulse">
+                                  {t("gifts.new")}
+                                </Badge>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <Badge variant={gift.type === "money" ? "default" : "secondary"} className="text-xs">
+                                {getLocalizedType(gift.type)}
+                              </Badge>
+                              {gift.type === "money" && (
+                                <>
+                                  <span className="font-bold text-lg text-foreground">
+                                    {formatAmount(gift.amount, gift.currency)}
+                                  </span>
+                                  {gift.paymentMethod && (
+                                    <Badge variant={gift.paymentMethod === "Cash" ? "outline" : "default"} className="text-xs">
+                                      {getLocalizedPaymentMethod(gift.paymentMethod)}
+                                    </Badge>
+                                  )}
+                                </>
+                              )}
+                              {gift.type === "item" && gift.description && (
+                                <span className="text-sm text-muted-foreground truncate max-w-[200px]">
+                                  {gift.description}
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                              <Clock className="w-3 h-3" />
+                              <span>{new Date(gift.createdAt).toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-1 shrink-0">
+                          {gift.proofImage && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleViewProof(gift.proofImage!)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          )}
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleEditGift(gift)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleDeleteGift(gift._id)}
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="py-12">
+                  <div className="text-center text-muted-foreground">
+                    <GiftIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>{t("gifts.noRecentGift")}</p>
+                    <p className="text-sm mt-1">{t("gifts.addGiftPrompt")}</p>
+                    <Button onClick={handleAddGift} className="mt-4">
+                      <Plus className="w-4 h-4 mr-2" />
+                      {t("gifts.addGift")}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* All Gifts Tab Content */}
+        {activeTab === "all" && (
+          <>
         {/* Filters */}
         <Card>
           <CardHeader>
@@ -402,6 +577,9 @@ export default function GiftsPage() {
             </div>
           </CardContent>
         </Card>
+
+        </>
+        )}
 
         <GiftDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={handleDialogSaved} gift={editingGift} />
       </div>
