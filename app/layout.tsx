@@ -15,9 +15,13 @@ const kantumruy = Kantumruy_Pro({
 export const metadata: Metadata = {
   title: "Wedding Guest Management System",
   description: "Manage wedding guests, gifts, and attendance",
+  applicationName: "Wedding Guest System",
+  appleWebApp: { capable: true, title: "Wedding Guests", statusBarStyle: "default" },
+  icons: { apple: "/apple-icon.png" },
 }
 
 export const viewport: Viewport = {
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#fbf8f8" },
     { media: "(prefers-color-scheme: dark)", color: "#1c1416" },

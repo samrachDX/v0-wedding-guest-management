@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { Clock, Eye, Gift as GiftIcon, List, Monitor, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react"
+import type React from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Camera, Clock, Eye, Gift as GiftIcon, List, Loader2, Monitor, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { EmptyState } from "@/components/EmptyState"
 import GiftDialog from "@/components/GiftDialog"
@@ -18,6 +19,7 @@ import { useLanguage } from "@/contexts/LanguageContext"
 import { useToast } from "@/hooks/use-toast"
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format"
 import { giftTypeLabel, paymentMethodLabel } from "@/lib/i18n"
+import { ProofImageError, uploadProofImage } from "@/lib/proofImage"
 import type { Gift } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -36,6 +38,9 @@ export default function GiftsPage() {
   const [currencyFilter, setCurrencyFilter] = useState("all")
   const [activeTab, setActiveTab] = useState<TabType>("all")
   const [newGiftCount, setNewGiftCount] = useState(0)
+  const [proofTarget, setProofTarget] = useState<Gift | null>(null)
+  const [savingProofId, setSavingProofId] = useState<string | null>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const { t, language } = useLanguage()
 
@@ -90,6 +95,49 @@ export default function GiftsPage() {
     setDialogOpen(true)
   }
 
+  // Quick capture from the list: snap the KHQR payment screen and attach it without opening the form
+  const startProofCapture = (gift: Gift) => {
+    setProofTarget(gift)
+    cameraInputRef.current?.click()
+  }
+
+  const handleProofCaptured = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    const gift = proofTarget
+    setProofTarget(null)
+    if (!file || !gift) return
+
+    setSavingProofId(gift._id)
+    try {
+      const { url } = await uploadProofImage(file)
+      const response = await fetch(`/api/gifts/${gift._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guestId: gift.guestId,
+          type: gift.type,
+          amount: gift.amount,
+          currency: gift.currency,
+          paymentMethod: gift.paymentMethod,
+          description: gift.description,
+          proofImage: url,
+        }),
+      })
+      if (!response.ok) throw new Error("Failed to save proof")
+      setGifts((current) => current.map((g) => (g._id === gift._id ? { ...g, proofImage: url } : g)))
+      toast({ title: t("gifts.proofSaved") })
+    } catch (error) {
+      toast({
+        title: t("common.error"),
+        description: error instanceof ProofImageError ? t("gifts.imageOnly") : t("gifts.uploadFailed"),
+        variant: "destructive",
+      })
+    } finally {
+      setSavingProofId(null)
+    }
+  }
+
   const handleDelete = async () => {
     if (!deletingGift) return
     const response = await fetch(`/api/gifts/${deletingGift._id}`, { method: "DELETE" })
@@ -129,6 +177,19 @@ export default function GiftsPage() {
 
   const rowActions = (gift: Gift) => (
     <div className="flex shrink-0 justify-end gap-1">
+      {!gift.proofImage && gift.paymentMethod === "KHQR" && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => startProofCapture(gift)}
+          disabled={savingProofId === gift._id}
+          aria-label={t("gifts.addProof")}
+          title={t("gifts.addProof")}
+          className="text-primary hover:bg-accent hover:text-primary"
+        >
+          {savingProofId === gift._id ? <Loader2 className="animate-spin" /> : <Camera />}
+        </Button>
+      )}
       {gift.proofImage && (
         <Button
           variant="ghost"
@@ -396,6 +457,14 @@ export default function GiftsPage() {
         )}
 
         <GiftDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={handleSaved} gift={editingGift} />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleProofCaptured}
+          className="hidden"
+        />
         <ProofImageDialog src={proofImage} onOpenChange={(open) => !open && setProofImage(null)} />
         <ConfirmDialog
           open={!!deletingGift}
