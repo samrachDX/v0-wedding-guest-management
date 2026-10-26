@@ -20,6 +20,7 @@ import {
   Wrench,
 } from "lucide-react"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
+import { InstallAppCard } from "@/components/InstallAppCard"
 import { LanguageSwitcher } from "@/components/LanguageSwitcher"
 import Layout from "@/components/Layout"
 import { PageHeader } from "@/components/PageHeader"
@@ -151,6 +152,8 @@ export default function SettingsPage() {
             </Card>
           </Link>
         )}
+
+        <InstallAppCard />
 
         <Card>
           <CardHeader className="pb-3">

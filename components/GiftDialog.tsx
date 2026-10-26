@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
-import { Banknote, Check, ImagePlus, Loader2, Package, QrCode, Search, X } from "lucide-react"
+import { Banknote, Camera, Check, ImagePlus, Loader2, Package, QrCode, Search, X } from "lucide-react"
 import { ProofImageDialog } from "@/components/ProofImageDialog"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useLanguage } from "@/contexts/LanguageContext"
 import { useToast } from "@/hooks/use-toast"
 import type { Currency, Gift, GiftType, PaymentMethod } from "@/lib/types"
+import { ProofImageError, uploadProofImage } from "@/lib/proofImage"
 import { cn } from "@/lib/utils"
 
 interface GuestOption {
@@ -42,35 +43,6 @@ function formatWithCommas(raw: string) {
   const [whole, ...rest] = raw.split(".")
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
   return rest.length ? `${grouped}.${rest.join("")}` : grouped
-}
-
-/** Shrinks a photo to at most 1200px and re-encodes it as JPEG before upload. */
-function compressImage(file: File, maxSize = 1200, quality = 0.7): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onerror = () => reject(new Error("Failed to read file"))
-    reader.onload = (event) => {
-      const img = new Image()
-      img.onerror = () => reject(new Error("Failed to load image"))
-      img.onload = () => {
-        const scale = Math.min(1, maxSize / img.width, maxSize / img.height)
-        const canvas = document.createElement("canvas")
-        canvas.width = Math.round(img.width * scale)
-        canvas.height = Math.round(img.height * scale)
-        const ctx = canvas.getContext("2d")
-        if (!ctx) return reject(new Error("Failed to get canvas context"))
-        ctx.imageSmoothingQuality = "high"
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        canvas.toBlob(
-          (blob) => (blob ? resolve(blob) : reject(new Error("Failed to compress image"))),
-          "image/jpeg",
-          quality,
-        )
-      }
-      img.src = event.target?.result as string
-    }
-    reader.readAsDataURL(file)
-  })
 }
 
 function ChoiceButton({
@@ -135,10 +107,10 @@ function GiftForm({ gift, onCancel, onSaved }: { gift?: Gift | null; onCancel: (
   const [searchResults, setSearchResults] = useState<GuestOption[]>([])
   const [searching, setSearching] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [compressing, setCompressing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const { t } = useLanguage()
 
@@ -182,40 +154,18 @@ function GiftForm({ gift, onCancel, onSaved }: { gift?: Gift | null; onCancel: (
     event.target.value = ""
     if (!file) return
 
-    if (!file.type.startsWith("image/")) {
-      toast({ title: t("common.error"), description: t("gifts.imageOnly"), variant: "destructive" })
-      return
-    }
-
-    setCompressing(true)
     setUploading(true)
     try {
-      const compressed = await compressImage(file)
-      setCompressing(false)
-
-      const upload = new FormData()
-      upload.append("file", new File([compressed], file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" }))
-
-      const response = await fetch("/api/upload", { method: "POST", body: upload })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || t("gifts.uploadFailed"))
-
-      setFormData((prev) => ({ ...prev, proofImage: data.url }))
-      toast({
-        title: t("common.success"),
-        description: t("gifts.imageUploaded", {
-          from: (file.size / 1024).toFixed(0),
-          to: (compressed.size / 1024).toFixed(0),
-        }),
-      })
+      const { url, fromKB, toKB } = await uploadProofImage(file)
+      setFormData((prev) => ({ ...prev, proofImage: url }))
+      toast({ title: t("common.success"), description: t("gifts.imageUploaded", { from: fromKB, to: toKB }) })
     } catch (error) {
       toast({
         title: t("common.error"),
-        description: error instanceof Error ? error.message : t("gifts.uploadFailed"),
+        description: error instanceof ProofImageError ? t("gifts.imageOnly") : t("gifts.uploadFailed"),
         variant: "destructive",
       })
     } finally {
-      setCompressing(false)
       setUploading(false)
     }
   }
@@ -270,7 +220,7 @@ function GiftForm({ gift, onCancel, onSaved }: { gift?: Gift | null; onCancel: (
     }
   }
 
-  const busyUploading = uploading || compressing
+  const showQrHint = formData.type === "money" && formData.paymentMethod === "KHQR"
 
   return (
     <>
@@ -442,40 +392,80 @@ function GiftForm({ gift, onCancel, onSaved }: { gift?: Gift | null; onCancel: (
           />
         </div>
 
-        {/* Proof image */}
+        {/* Proof image: on phones the camera button opens the rear camera directly */}
         <div className="space-y-2">
           <Label>{t("gifts.proofImage")}</Label>
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          <input ref={galleryInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
           {formData.proofImage ? (
             <div className="relative overflow-hidden rounded-lg border">
               {/* eslint-disable-next-line @next/next/no-img-element -- proof images are inline data URLs */}
               <img
                 src={formData.proofImage}
                 alt={t("gifts.proofImage")}
-                className="h-36 w-full cursor-zoom-in object-cover"
+                className="h-44 w-full cursor-zoom-in object-cover"
                 onClick={() => setPreviewOpen(true)}
               />
-              <Button
-                type="button"
-                variant="secondary"
-                size="icon"
-                className="absolute right-2 top-2 size-8 bg-card/90 backdrop-blur"
-                aria-label={t("common.delete")}
-                onClick={() => setFormData({ ...formData, proofImage: "" })}
-              >
-                <X />
-              </Button>
+              <div className="absolute right-2 top-2 flex gap-1.5">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 bg-card/90 backdrop-blur"
+                  disabled={uploading}
+                  onClick={() => cameraInputRef.current?.click()}
+                >
+                  {uploading ? <Loader2 className="animate-spin" /> : <Camera />}
+                  {t("gifts.retake")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="size-8 bg-card/90 backdrop-blur"
+                  aria-label={t("common.delete")}
+                  onClick={() => setFormData({ ...formData, proofImage: "" })}
+                >
+                  <X />
+                </Button>
+              </div>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={busyUploading}
-              className="flex w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed px-4 py-5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent/40 disabled:opacity-60"
-            >
-              {busyUploading ? <Loader2 className="size-5 animate-spin" /> : <ImagePlus className="size-5" />}
-              {compressing ? t("gifts.compressing") : uploading ? t("gifts.uploading") : t("gifts.uploadImage")}
-            </button>
+            <>
+              {showQrHint && <p className="text-xs text-muted-foreground">{t("gifts.qrProofHint")}</p>}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={uploading}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1.5 rounded-lg border px-3 py-4 text-sm font-medium transition-colors disabled:opacity-60",
+                    showQrHint
+                      ? "border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/20 hover:bg-primary/90"
+                      : "border-dashed text-muted-foreground hover:border-primary/50 hover:bg-accent/40",
+                  )}
+                >
+                  {uploading ? <Loader2 className="size-6 animate-spin" /> : <Camera className="size-6" />}
+                  {uploading ? t("gifts.uploading") : t("gifts.takePhoto")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent/40 disabled:opacity-60"
+                >
+                  <ImagePlus className="size-6" />
+                  {t("gifts.choosePhoto")}
+                </button>
+              </div>
+            </>
           )}
         </div>
 
@@ -483,7 +473,7 @@ function GiftForm({ gift, onCancel, onSaved }: { gift?: Gift | null; onCancel: (
           <Button type="button" variant="outline" onClick={onCancel}>
             {t("form.cancel")}
           </Button>
-          <Button type="submit" disabled={loading || busyUploading || !formData.selectedGuest}>
+          <Button type="submit" disabled={loading || uploading || !formData.selectedGuest}>
             {loading && <Loader2 className="animate-spin" />}
             {loading ? t("form.saving") : isEditing ? t("form.update") : t("form.save")}
           </Button>
