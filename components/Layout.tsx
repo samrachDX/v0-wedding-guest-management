@@ -1,24 +1,33 @@
 "use client"
 
 import type React from "react"
-
-import { useSession, signOut } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import Link from "next/link"
+import { usePathname, useRouter } from "next/navigation"
+import { signOut, useSession } from "next-auth/react"
+import { Download, Gift, LayoutDashboard, LogOut, Settings, Users } from "lucide-react"
+import { BrandMark } from "@/components/BrandMark"
+import { LanguageSwitcher } from "@/components/LanguageSwitcher"
+import { PageLoader } from "@/components/PageLoader"
+import { ThemeToggle } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { LayoutDashboard, Users, Gift, Download, LogOut, Languages, Settings } from "lucide-react"
+import type { TranslationKey } from "@/lib/i18n"
+import { cn } from "@/lib/utils"
 
-interface LayoutProps {
-  children: React.ReactNode
-}
+const NAV_ITEMS: { href: string; label: TranslationKey; icon: typeof Users }[] = [
+  { href: "/dashboard", label: "nav.dashboard", icon: LayoutDashboard },
+  { href: "/guests", label: "nav.guests", icon: Users },
+  { href: "/gifts", label: "nav.gifts", icon: Gift },
+  { href: "/export", label: "nav.export", icon: Download },
+  { href: "/settings", label: "nav.settings", icon: Settings },
+]
 
-export default function Layout({ children }: LayoutProps) {
+export default function Layout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const { language, setLanguage, t } = useLanguage()
+  const pathname = usePathname()
+  const { t } = useLanguage()
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -27,85 +36,116 @@ export default function Layout({ children }: LayoutProps) {
   }, [status, router])
 
   if (status === "loading") {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+    return (
+      <div className="flex min-h-dvh items-center justify-center">
+        <PageLoader label={t("common.loading")} />
+      </div>
+    )
   }
 
   if (!session) {
     return null
   }
 
-  const handleSignOut = () => {
-    signOut({ callbackUrl: "/login" })
-  }
+  const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`)
+  const handleSignOut = () => signOut({ callbackUrl: "/login" })
+  const userName = session.user?.name || session.user?.email || ""
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center space-x-8">
-              <h1 className="text-xl font-semibold text-gray-900">Wedding Guest System</h1>
-              <div className="hidden md:flex space-x-4">
-                <Link
-                  href="/dashboard"
-                  className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-                >
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span>{t("nav.dashboard")}</span>
-                </Link>
-                <Link
-                  href="/guests"
-                  className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-                >
-                  <Users className="w-4 h-4" />
-                  <span>{t("nav.guests")}</span>
-                </Link>
-                <Link
-                  href="/gifts"
-                  className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-                >
-                  <Gift className="w-4 h-4" />
-                  <span>{t("nav.gifts")}</span>
-                </Link>
-                <Link
-                  href="/export"
-                  className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>{t("nav.export")}</span>
-                </Link>
-                <Link
-                  href="/settings"
-                  className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span>{t("nav.settings")}</span>
-                </Link>
-              </div>
+    <div className="min-h-dvh bg-background">
+      {/* Desktop sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r bg-card/70 backdrop-blur lg:flex">
+        <div className="flex h-16 items-center gap-3 px-5">
+          <BrandMark />
+          <span className="text-sm font-semibold leading-tight">{t("app.name")}</span>
+        </div>
+        <nav className="flex-1 space-y-1 px-3 py-4">
+          {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                isActive(href)
+                  ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+              )}
+            >
+              <Icon className="size-[18px]" />
+              {t(label)}
+            </Link>
+          ))}
+        </nav>
+        <div className="space-y-3 border-t p-4">
+          <div className="flex items-center justify-between gap-2">
+            <LanguageSwitcher />
+            <ThemeToggle />
+          </div>
+          <div className="flex items-center gap-3 rounded-xl bg-muted/60 p-2.5">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold text-primary">
+              {userName.charAt(0).toUpperCase()}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{session.user?.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{session.user?.email}</p>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Languages className="w-4 h-4" />
-                <Select value={language} onValueChange={(value: "en" | "km") => setLanguage(value)}>
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="en">EN</SelectItem>
-                    <SelectItem value="km">KM</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <span className="text-sm text-gray-700">{session.user?.name}</span>
-              <Button variant="ghost" size="sm" onClick={handleSignOut} className="flex items-center space-x-2">
-                <LogOut className="w-4 h-4" />
-                <span>{t("nav.logout")}</span>
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSignOut}
+              aria-label={t("nav.logout")}
+              title={t("nav.logout")}
+            >
+              <LogOut />
+            </Button>
           </div>
         </div>
+      </aside>
+
+      {/* Mobile top bar */}
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b bg-background/85 px-4 backdrop-blur lg:hidden">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <BrandMark className="size-8" />
+          <span className="truncate text-sm font-semibold">{t("app.name")}</span>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <LanguageSwitcher />
+          <ThemeToggle />
+          <Button variant="ghost" size="icon" onClick={handleSignOut} aria-label={t("nav.logout")}>
+            <LogOut />
+          </Button>
+        </div>
+      </header>
+
+      <main className="lg:pl-64">
+        <div className="mx-auto w-full max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pb-10 lg:pt-8">{children}</div>
+      </main>
+
+      {/* Mobile bottom navigation */}
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+        <div className="mx-auto grid max-w-lg grid-cols-5">
+          {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
+                isActive(href) ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-7 w-12 items-center justify-center rounded-full transition-colors",
+                  isActive(href) && "bg-accent",
+                )}
+              >
+                <Icon className="size-5" />
+              </span>
+              <span className="max-w-full truncate px-1">{t(label)}</span>
+            </Link>
+          ))}
+        </div>
       </nav>
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">{children}</main>
     </div>
   )
 }

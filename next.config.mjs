@@ -1,22 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
     unoptimized: true,
   },
-  serverExternalPackages: ['mongoose', 'bcryptjs'],
-  webpack: (config) => {
-    config.externals.push({
-      'utf-8-validate': 'commonjs utf-8-validate',
-      'bufferutil': 'commonjs bufferutil',
-    })
-    return config
-  }
+  serverExternalPackages: ["mongoose", "bcryptjs", "exceljs"],
 }
 
 export default nextConfig

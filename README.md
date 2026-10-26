@@ -1,30 +1,34 @@
 # Wedding guest management
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+A bilingual (Khmer / English) app for managing wedding guests and gifts (ចំណងដៃ): guest list, money and item gifts in USD or KHR, a live gift display screen, CSV export, and CSV/XLSX import.
 
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/samraichchan-7736s-projects/v0-wedding-guest-management)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/s8MtNEtmH0T)
 
-## Overview
+## Stack
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+- Next.js 16 (App Router, Turbopack) and React 19
+- Tailwind CSS 4 with Radix UI primitives, light and dark themes
+- MongoDB via Mongoose 9
+- NextAuth 4 (email and password)
 
-## Deployment
+## Environment variables
 
-Your project is live at:
+| Name | Purpose |
+| --- | --- |
+| `MONGODB_URI` | MongoDB connection string |
+| `NEXTAUTH_SECRET` | Secret used to sign session tokens |
+| `NEXTAUTH_URL` | Public URL of the app (Vercel sets this automatically in most setups) |
 
-**[https://vercel.com/samraichchan-7736s-projects/v0-wedding-guest-management](https://vercel.com/samraichchan-7736s-projects/v0-wedding-guest-management)**
+## Development
 
-## Build your app
+```bash
+pnpm install
+pnpm dev        # http://localhost:3000
+pnpm lint
+pnpm typecheck
+pnpm build
+```
 
-Continue building your app on:
+## Translations
 
-**[https://v0.dev/chat/projects/s8MtNEtmH0T](https://v0.dev/chat/projects/s8MtNEtmH0T)**
-
-## How It Works
-
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+All UI text lives in `lib/i18n.ts`. The Khmer dictionary is typed against the English one, so a missing translation fails the type check.

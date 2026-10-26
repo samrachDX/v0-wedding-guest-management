@@ -1,146 +1,90 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { errorMessage, getUserId, unauthorized } from "@/lib/api"
 import connectDB from "@/lib/mongodb"
 import Gift from "@/lib/models/Gift"
 import Guest from "@/lib/models/Guest"
+import { hasColumn, pick, readSpreadsheet } from "@/lib/spreadsheet"
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const userId = await getUserId()
+    if (!userId) return unauthorized()
 
-    const formData = await request.formData()
-    const file = formData.get("file") as File
-
-    if (!file) {
+    const file = (await request.formData()).get("file")
+    if (!(file instanceof File)) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    // Validate file type
-    const allowedTypes = [
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
-      "application/vnd.ms-excel", // .xls
-      "text/csv", // .csv
-    ]
-
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        {
-          error: "Invalid file type. Please upload Excel (.xlsx, .xls) or CSV files only.",
-        },
-        { status: 400 },
-      )
-    }
-
-    // Read file content
-    const buffer = await file.arrayBuffer()
-    const content = new TextDecoder().decode(buffer)
-
-    // Parse CSV content
-    const lines = content.split("\n").filter((line) => line.trim())
-    const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""))
-
-    // Validate headers
-    const requiredHeaders = ["Guest ID", "Type", "Amount", "Currency", "Payment Method", "Description"]
-    const headerMap = {}
-
-    requiredHeaders.forEach((required) => {
-      const index = headers.findIndex(
-        (h) => h.toLowerCase().includes(required.toLowerCase()) || required.toLowerCase().includes(h.toLowerCase()),
-      )
-      if (index === -1 && !["Amount", "Currency", "Payment Method", "Description"].includes(required)) {
-        throw new Error(`Required column "${required}" not found`)
+    const { headers, rows } = await readSpreadsheet(file)
+    for (const column of ["Guest ID", "Type"]) {
+      if (!hasColumn(headers, column)) {
+        return NextResponse.json({ error: `Required column "${column}" not found` }, { status: 400 })
       }
-      headerMap[required] = index
-    })
+    }
 
     await connectDB()
 
-    const results = {
-      success: 0,
-      errors: [],
-      total: lines.length - 1,
-    }
+    const results = { success: 0, errors: [] as string[], total: rows.length }
 
-    // Process each row
-    for (let i = 1; i < lines.length; i++) {
+    for (const [index, row] of rows.entries()) {
+      const rowNumber = index + 2
       try {
-        const values = lines[i].split(",").map((v) => v.trim().replace(/"/g, ""))
+        const guestId = Number.parseInt(pick(row, "Guest ID"), 10)
+        const type = pick(row, "Type").toLowerCase()
+        const amount = Number.parseFloat(pick(row, "Amount").replace(/,/g, ""))
+        const currency = (pick(row, "Currency") || "USD").toUpperCase()
+        const rawMethod = pick(row, "Payment Method")
+        const paymentMethod =
+          rawMethod.toUpperCase() === "KHQR" ? "KHQR" : rawMethod.toLowerCase() === "cash" ? "Cash" : ""
+        const description = pick(row, "Description") || undefined
 
-        const guestId = Number.parseInt(values[headerMap["Guest ID"]])
-        const type = values[headerMap["Type"]]?.trim()
-        const amount = values[headerMap["Amount"]]?.trim()
-        const currency = values[headerMap["Currency"]]?.trim() || "USD"
-        const paymentMethod = values[headerMap["Payment Method"]]?.trim()
-        const description = values[headerMap["Description"]]?.trim() || undefined
-
-        if (!guestId || isNaN(guestId)) {
-          results.errors.push(`Row ${i + 1}: Valid Guest ID is required`)
+        if (!Number.isInteger(guestId) || guestId <= 0) {
+          results.errors.push(`Row ${rowNumber}: Valid Guest ID is required`)
+          continue
+        }
+        if (type !== "money" && type !== "item") {
+          results.errors.push(`Row ${rowNumber}: Type must be "money" or "item"`)
           continue
         }
 
-        if (!type || !["money", "item"].includes(type)) {
-          results.errors.push(`Row ${i + 1}: Type must be "money" or "item"`)
-          continue
-        }
-
-        // Find guest
-        const guest = await Guest.findOne({ guestId, userId: session.user.id })
+        const guest = await Guest.findOne({ guestId, userId })
         if (!guest) {
-          results.errors.push(`Row ${i + 1}: Guest with ID ${guestId} not found`)
+          results.errors.push(`Row ${rowNumber}: Guest with ID ${guestId} not found`)
           continue
         }
 
-        // Validate money gift requirements
         if (type === "money") {
-          if (!amount || isNaN(Number.parseFloat(amount))) {
-            results.errors.push(`Row ${i + 1}: Valid amount is required for money gifts`)
+          if (!Number.isFinite(amount) || amount <= 0) {
+            results.errors.push(`Row ${rowNumber}: Valid amount is required for money gifts`)
             continue
           }
-          if (!paymentMethod || !["Cash", "KHQR"].includes(paymentMethod)) {
-            results.errors.push(`Row ${i + 1}: Payment method must be "Cash" or "KHQR" for money gifts`)
+          if (!paymentMethod) {
+            results.errors.push(`Row ${rowNumber}: Payment method must be "Cash" or "KHQR" for money gifts`)
             continue
           }
-          if (!["USD", "KHR"].includes(currency)) {
-            results.errors.push(`Row ${i + 1}: Currency must be "USD" or "KHR"`)
+          if (currency !== "USD" && currency !== "KHR") {
+            results.errors.push(`Row ${rowNumber}: Currency must be "USD" or "KHR"`)
             continue
           }
         }
 
-        // Create gift data
-        const giftData = {
+        await Gift.create({
           guestId,
           guestName: guest.name,
           type,
-          userId: session.user.id,
+          userId,
           description,
-        }
-
-        if (type === "money") {
-          giftData.amount = Number.parseFloat(amount)
-          giftData.currency = currency
-          giftData.paymentMethod = paymentMethod
-        }
-
-        // Create gift
-        await Gift.create(giftData)
+          ...(type === "money" ? { amount, currency, paymentMethod } : {}),
+        })
         results.success++
       } catch (error) {
-        results.errors.push(`Row ${i + 1}: ${error.message}`)
+        results.errors.push(`Row ${rowNumber}: ${errorMessage(error, "Unknown error")}`)
       }
     }
 
     return NextResponse.json(results)
   } catch (error) {
-    console.error("Excel upload error:", error)
-    return NextResponse.json(
-      {
-        error: error.message || "Failed to process Excel file",
-      },
-      { status: 500 },
-    )
+    console.error("Gift import error:", error)
+    return NextResponse.json({ error: errorMessage(error, "Failed to process file") }, { status: 500 })
   }
 }

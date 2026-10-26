@@ -1,60 +1,52 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import connectDB from "@/lib/mongodb"
-import Guest from "@/lib/models/Guest"
-import Gift from "@/lib/models/Gift"
+import { NextResponse } from "next/server"
 import mongoose from "mongoose"
+import { getUserId, serverError, unauthorized } from "@/lib/api"
+import connectDB from "@/lib/mongodb"
+import Gift from "@/lib/models/Gift"
+import Guest from "@/lib/models/Guest"
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const id = await getUserId()
+    if (!id) return unauthorized()
 
     await connectDB()
 
-    const userId = new mongoose.Types.ObjectId(session.user.id)
+    const userId = new mongoose.Types.ObjectId(id)
 
-    // Get guest statistics
-    const totalGuests = await Guest.countDocuments({ userId })
+    const [totalGuests, groomSide, brideSide, totalGifts, moneyTotals, guestIdsWithGifts, recentGuests, recentGifts] =
+      await Promise.all([
+        Guest.countDocuments({ userId }),
+        Guest.countDocuments({ userId, guestType: "Groom Side" }),
+        Guest.countDocuments({ userId, guestType: "Bride Side" }),
+        Gift.countDocuments({ userId }),
+        Gift.aggregate<{ _id: string; total: number; count: number }>([
+          { $match: { userId, type: "money" } },
+          { $group: { _id: "$currency", total: { $sum: "$amount" }, count: { $sum: 1 } } },
+        ]),
+        Gift.distinct("guestId", { userId }),
+        Guest.find({ userId }).sort({ createdAt: -1 }).limit(5),
+        Gift.find({ userId }).sort({ createdAt: -1 }).limit(5),
+      ])
 
-    // Get gift statistics
-    const totalGifts = await Gift.countDocuments({ userId })
-
-    // Get USD money gifts total
-    const usdGifts = await Gift.aggregate([
-      { $match: { userId: userId, type: "money", currency: "USD" } },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ])
-    const totalUSD = usdGifts.length > 0 ? usdGifts[0].total : 0
-
-    // Get KHR money gifts total
-    const khrGifts = await Gift.aggregate([
-      { $match: { userId: userId, type: "money", currency: "KHR" } },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ])
-    const totalKHR = khrGifts.length > 0 ? khrGifts[0].total : 0
-
-    // Get recent guests and gifts
-    const recentGuests = await Guest.find({ userId }).sort({ createdAt: -1 }).limit(5)
-    const recentGifts = await Gift.find({ userId }).sort({ createdAt: -1 }).limit(5)
+    const totalFor = (currency: string) => moneyTotals.find((row) => row._id === currency)?.total ?? 0
 
     return NextResponse.json({
       guests: {
         total: totalGuests,
+        groomSide,
+        brideSide,
+        withGifts: guestIdsWithGifts.length,
         recent: recentGuests,
       },
       gifts: {
         total: totalGifts,
-        totalUSD,
-        totalKHR,
+        totalUSD: totalFor("USD"),
+        totalKHR: totalFor("KHR"),
         recent: recentGifts,
       },
     })
   } catch (error) {
-    console.error("Get dashboard stats error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return serverError("Get dashboard stats error", error)
   }
 }

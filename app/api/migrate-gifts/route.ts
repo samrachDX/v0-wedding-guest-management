@@ -1,54 +1,34 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { NextResponse } from "next/server"
+import { getUserId, serverError, unauthorized } from "@/lib/api"
 import connectDB from "@/lib/mongodb"
 import Gift from "@/lib/models/Gift"
 
-export async function POST(request: NextRequest) {
+/** Gives money gifts that predate the payment-method field a default of "Cash". */
+export async function POST() {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const userId = await getUserId()
+    if (!userId) return unauthorized()
 
     await connectDB()
 
-    // Find all money gifts without paymentMethod for this user
-    const giftsToUpdate = await Gift.find({
-      userId: session.user.id,
+    const filter = {
+      userId,
       type: "money",
       $or: [{ paymentMethod: { $exists: false } }, { paymentMethod: null }, { paymentMethod: "" }],
-    })
-
-    console.log(`Found ${giftsToUpdate.length} gifts to update for user ${session.user.id}`)
-
-    let updatedCount = 0
-
-    // Update each gift with a default payment method
-    for (const gift of giftsToUpdate) {
-      const updateResult = await Gift.updateOne(
-        { _id: gift._id },
-        {
-          $set: {
-            paymentMethod: "Cash",
-            currency: gift.currency || "USD",
-          },
-        },
-      )
-
-      if (updateResult.modifiedCount > 0) {
-        updatedCount++
-        console.log(`Updated gift ${gift._id} (Guest: ${gift.guestName})`)
-      }
     }
+    const totalFound = await Gift.countDocuments(filter)
+    const paymentResult = await Gift.updateMany(filter, { $set: { paymentMethod: "Cash" } })
+    await Gift.updateMany(
+      { userId, type: "money", $or: [{ currency: { $exists: false } }, { currency: null }] },
+      { $set: { currency: "USD" } },
+    )
 
     return NextResponse.json({
       message: "Migration completed successfully",
-      updatedCount,
-      totalFound: giftsToUpdate.length,
+      updatedCount: paymentResult.modifiedCount,
+      totalFound,
     })
   } catch (error) {
-    console.error("Migration error:", error)
-    return NextResponse.json({ error: "Migration failed" }, { status: 500 })
+    return serverError("Migration error", error)
   }
 }

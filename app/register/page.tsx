@@ -1,14 +1,15 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { Loader2 } from "lucide-react"
+import { AuthShell } from "@/components/AuthShell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useLanguage } from "@/contexts/LanguageContext"
 import { useToast } from "@/hooks/use-toast"
 
 export default function RegisterPage() {
@@ -18,6 +19,7 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
+  const { t } = useLanguage()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,78 +28,71 @@ export default function RegisterPage() {
     try {
       const response = await fetch("/api/auth/register", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
       })
 
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Account created successfully",
-        })
+        toast({ title: t("common.success"), description: t("auth.accountCreated") })
         router.push("/login")
       } else {
-        const data = await response.json()
-        toast({
-          title: "Error",
-          description: data.error || "Something went wrong",
-          variant: "destructive",
-        })
+        const data = await response.json().catch(() => ({}))
+        toast({ title: t("common.error"), description: data.error, variant: "destructive" })
       }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Something went wrong",
-        variant: "destructive",
-      })
+    } catch {
+      toast({ title: t("common.error"), variant: "destructive" })
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Create Account</CardTitle>
-          <CardDescription>Register for the Wedding Guest System</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating Account..." : "Create Account"}
-            </Button>
-          </form>
-          <div className="mt-4 text-center">
-            <p className="text-sm text-gray-600">
-              Already have an account?{" "}
-              <Link href="/login" className="text-blue-600 hover:underline">
-                Sign in here
-              </Link>
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <AuthShell
+      title={t("auth.registerTitle")}
+      subtitle={t("auth.registerSubtitle")}
+      footer={
+        <>
+          {t("auth.haveAccount")}{" "}
+          <Link href="/login" className="font-medium text-primary hover:underline">
+            {t("auth.signInLink")}
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="name">{t("auth.name")}</Label>
+          <Input id="name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} required />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="email">{t("auth.email")}</Label>
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">{t("auth.password")}</Label>
+          <Input
+            id="password"
+            type="password"
+            autoComplete="new-password"
+            minLength={6}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <p className="text-xs text-muted-foreground">{t("auth.passwordHint")}</p>
+        </div>
+        <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
+          {isLoading && <Loader2 className="animate-spin" />}
+          {isLoading ? t("auth.registering") : t("auth.register")}
+        </Button>
+      </form>
+    </AuthShell>
   )
 }
