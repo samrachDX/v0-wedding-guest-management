@@ -5,7 +5,7 @@ import { useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
-import { Download, Gift, LayoutDashboard, LogOut, Settings, Users } from "lucide-react"
+import { Download, Gift, LayoutDashboard, LogOut, Settings, ShieldCheck, Users } from "lucide-react"
 import { BrandMark } from "@/components/BrandMark"
 import { LanguageSwitcher } from "@/components/LanguageSwitcher"
 import { PageLoader } from "@/components/PageLoader"
@@ -23,6 +23,9 @@ const NAV_ITEMS: { href: string; label: TranslationKey; icon: typeof Users }[] =
   { href: "/settings", label: "nav.settings", icon: Settings },
 ]
 
+// Admin-only; on mobile it is reached from the Settings page to keep the bottom bar at five items
+const ADMIN_NAV_ITEM = { href: "/users", label: "nav.users" as TranslationKey, icon: ShieldCheck }
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -32,8 +35,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login")
+    } else if (session?.user?.disabled) {
+      signOut({ callbackUrl: "/login?error=disabled" })
     }
-  }, [status, router])
+  }, [status, session, router])
 
   if (status === "loading") {
     return (
@@ -43,9 +48,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!session) {
+  if (!session || session.user.disabled) {
     return null
   }
+
+  const sidebarItems = session.user.role === "admin" ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS
 
   const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`)
   const handleSignOut = () => signOut({ callbackUrl: "/login" })
@@ -60,7 +67,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <span className="text-sm font-semibold leading-tight">{t("app.name")}</span>
         </div>
         <nav className="flex-1 space-y-1 px-3 py-4">
-          {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+          {sidebarItems.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}

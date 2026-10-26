@@ -5,7 +5,6 @@ const GuestSchema = new mongoose.Schema(
     guestId: {
       type: Number,
       required: true,
-      unique: true,
     },
     name: {
       type: String,
@@ -33,5 +32,8 @@ const GuestSchema = new mongoose.Schema(
     timestamps: true,
   },
 )
+
+// Guest numbers are counted per account, so they only need to be unique within one account
+GuestSchema.index({ userId: 1, guestId: 1 }, { unique: true })
 
 export default mongoose.models.Guest || mongoose.model("Guest", GuestSchema)

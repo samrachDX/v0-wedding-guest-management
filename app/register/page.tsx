@@ -4,12 +4,14 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Loader2 } from "lucide-react"
+import { Loader2, Lock } from "lucide-react"
+import { PageLoader } from "@/components/PageLoader"
 import { AuthShell } from "@/components/AuthShell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useLanguage } from "@/contexts/LanguageContext"
+import { useRegistrationOpen } from "@/hooks/use-registration-open"
 import { useToast } from "@/hooks/use-toast"
 
 export default function RegisterPage() {
@@ -20,6 +22,7 @@ export default function RegisterPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { t } = useLanguage()
+  const registrationOpen = useRegistrationOpen()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,10 +49,32 @@ export default function RegisterPage() {
     }
   }
 
+  if (registrationOpen === null) {
+    return <PageLoader />
+  }
+
+  if (!registrationOpen) {
+    return (
+      <AuthShell
+        title={t("auth.registrationClosed")}
+        subtitle={t("auth.registrationClosedHint")}
+        footer={
+          <Link href="/login" className="font-medium text-primary hover:underline">
+            {t("auth.backToSignIn")}
+          </Link>
+        }
+      >
+        <div className="flex size-14 items-center justify-center rounded-2xl bg-accent text-primary">
+          <Lock className="size-7" />
+        </div>
+      </AuthShell>
+    )
+  }
+
   return (
     <AuthShell
       title={t("auth.registerTitle")}
-      subtitle={t("auth.registerSubtitle")}
+      subtitle={`${t("auth.registerSubtitle")} ${t("auth.firstAdmin")}`}
       footer={
         <>
           {t("auth.haveAccount")}{" "}

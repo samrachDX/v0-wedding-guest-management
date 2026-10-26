@@ -2,8 +2,23 @@
 
 import type React from "react"
 import { useState } from "react"
+import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { useTheme } from "next-themes"
-import { Bug, Database, Download, FileSpreadsheet, Loader2, Monitor, Moon, Sun, Upload, Wrench } from "lucide-react"
+import {
+  ArrowRight,
+  Bug,
+  Database,
+  ShieldCheck,
+  Download,
+  FileSpreadsheet,
+  Loader2,
+  Monitor,
+  Moon,
+  Sun,
+  Upload,
+  Wrench,
+} from "lucide-react"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { LanguageSwitcher } from "@/components/LanguageSwitcher"
 import Layout from "@/components/Layout"
@@ -56,6 +71,7 @@ export default function SettingsPage() {
   const { toast } = useToast()
   const { t } = useLanguage()
   const { theme, setTheme } = useTheme()
+  const { data: session } = useSession()
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: ImportType) => {
     const file = event.target.files?.[0]
@@ -120,6 +136,21 @@ export default function SettingsPage() {
     <Layout>
       <div className="space-y-6">
         <PageHeader title={t("settings.title")} description={t("settings.subtitle")} />
+
+        {session?.user?.role === "admin" && (
+          <Link href="/users" className="block">
+            <Card className="flex items-center gap-4 p-5 transition-colors hover:bg-accent/40">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                <ShieldCheck className="size-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">{t("users.title")}</p>
+                <p className="text-sm text-muted-foreground">{t("users.subtitle")}</p>
+              </div>
+              <ArrowRight className="size-5 text-muted-foreground" />
+            </Card>
+          </Link>
+        )}
 
         <Card>
           <CardHeader className="pb-3">

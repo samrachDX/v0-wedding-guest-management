@@ -4,6 +4,17 @@ import { serverError } from "@/lib/api"
 import connectDB from "@/lib/mongodb"
 import User from "@/lib/models/User"
 
+/** Public sign-up is closed. Only the very first account can register here, and it becomes the admin. */
+export async function GET() {
+  try {
+    await connectDB()
+    const registrationOpen = (await User.estimatedDocumentCount()) === 0
+    return NextResponse.json({ registrationOpen })
+  } catch (error) {
+    return serverError("Registration status error", error)
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { name, email, password } = await request.json()
@@ -17,16 +28,18 @@ export async function POST(request: NextRequest) {
 
     await connectDB()
 
-    const normalizedEmail = email.trim().toLowerCase()
-    const existingUser = await User.findOne({ email: { $in: [email.trim(), normalizedEmail] } })
-    if (existingUser) {
-      return NextResponse.json({ error: "User already exists" }, { status: 400 })
+    if ((await User.countDocuments()) > 0) {
+      return NextResponse.json(
+        { error: "Registration is closed. Ask an administrator to create an account for you." },
+        { status: 403 },
+      )
     }
 
     const user = await User.create({
       name: name.trim(),
-      email: normalizedEmail,
+      email: email.trim().toLowerCase(),
       password: await bcrypt.hash(password, 12),
+      role: "admin",
     })
 
     return NextResponse.json({ message: "User created successfully", userId: user._id }, { status: 201 })
