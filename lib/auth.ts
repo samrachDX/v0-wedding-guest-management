@@ -19,7 +19,9 @@ export const authOptions: NextAuthOptions = {
 
         await connectDB()
 
-        const user = await User.findOne({ email: credentials.email })
+        // Accounts are stored lower-cased now, but older ones may keep their original casing
+        const email = credentials.email.trim()
+        const user = await User.findOne({ email: { $in: [email, email.toLowerCase()] } })
 
         if (!user) {
           return null

@@ -1,399 +1,302 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useTheme } from "next-themes"
+import { Bug, Database, Download, FileSpreadsheet, Loader2, Monitor, Moon, Sun, Upload, Wrench } from "lucide-react"
+import { ConfirmDialog } from "@/components/ConfirmDialog"
+import { LanguageSwitcher } from "@/components/LanguageSwitcher"
 import Layout from "@/components/Layout"
+import { PageHeader } from "@/components/PageHeader"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useToast } from "@/hooks/use-toast"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { Upload, Download, Bug, Database, FileSpreadsheet, RefreshCw } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { downloadFile } from "@/lib/download"
+import type { TranslationKey } from "@/lib/i18n"
+import { cn } from "@/lib/utils"
+
+type ImportType = "guests" | "gifts"
+
+interface ImportResult {
+  success: number
+  total: number
+  errors: string[]
+}
+
+interface DebugGift {
+  _id: string
+  guestName: string
+  type: string
+  paymentMethod?: string
+  hasPaymentMethod: boolean
+}
+
+const IMPORTS: { type: ImportType; title: TranslationKey; columns: string[]; rules: TranslationKey[] }[] = [
+  {
+    type: "guests",
+    title: "settings.importGuests",
+    columns: ["Name", "Phone", "Guest Type", "Notes"],
+    rules: ["settings.guestRules1", "settings.guestRules2", "settings.guestRules3"],
+  },
+  {
+    type: "gifts",
+    title: "settings.importGifts",
+    columns: ["Guest ID", "Type", "Amount", "Currency", "Payment Method", "Description"],
+    rules: ["settings.giftRules1", "settings.giftRules2", "settings.giftRules3"],
+  },
+]
 
 export default function SettingsPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-  const [uploading, setUploading] = useState(false)
-  const [debugInfo, setDebugInfo] = useState<any>(null)
-  const [showDebug, setShowDebug] = useState(false)
+  const [uploading, setUploading] = useState<ImportType | null>(null)
+  const [results, setResults] = useState<Partial<Record<ImportType, ImportResult>>>({})
+  const [debugGifts, setDebugGifts] = useState<DebugGift[] | null>(null)
+  const [confirmFix, setConfirmFix] = useState(false)
   const { toast } = useToast()
-  const { t, language } = useLanguage()
+  const { t } = useLanguage()
+  const { theme, setTheme } = useTheme()
 
-  if (status === "unauthenticated") {
-    router.push("/login")
-    return null
-  }
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: "guests" | "gifts") => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: ImportType) => {
     const file = event.target.files?.[0]
+    event.target.value = ""
     if (!file) return
 
-    setUploading(true)
+    setUploading(type)
     try {
       const formData = new FormData()
       formData.append("file", file)
 
-      const response = await fetch(`/api/upload/excel/${type}`, {
-        method: "POST",
-        body: formData,
+      const response = await fetch(`/api/upload/excel/${type}`, { method: "POST", body: formData })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || t("settings.importFailed"))
+
+      setResults((prev) => ({ ...prev, [type]: result }))
+      toast({
+        title: t("settings.importDone", { success: result.success, total: result.total }),
+        description: result.errors.length ? t("settings.importErrors", { count: result.errors.length }) : undefined,
       })
-
-      if (response.ok) {
-        const result = await response.json()
-        toast({
-          title: "Upload Complete",
-          description: `Successfully imported ${result.success} ${type}. ${result.errors.length} errors.`,
-        })
-
-        if (result.errors.length > 0) {
-          console.log("Upload errors:", result.errors)
-        }
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || "Upload failed")
-      }
     } catch (error) {
       toast({
-        title: "Upload Failed",
-        description: error instanceof Error ? error.message : "Failed to upload file",
+        title: t("settings.importFailed"),
+        description: error instanceof Error ? error.message : undefined,
         variant: "destructive",
       })
     } finally {
-      setUploading(false)
-      // Reset file input
-      event.target.value = ""
+      setUploading(null)
     }
   }
 
-  const downloadSample = async (type: "guests" | "gifts") => {
+  const downloadSample = async (type: ImportType) => {
     try {
-      const response = await fetch(`/api/download/sample?type=${type}`)
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = `sample-${type}.csv`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-      }
-    } catch (error) {
-      toast({
-        title: "Download Failed",
-        description: "Failed to download sample file",
-        variant: "destructive",
-      })
+      await downloadFile(`/api/download/sample?type=${type}`, `sample-${type}.csv`)
+    } catch {
+      toast({ title: t("common.error"), variant: "destructive" })
     }
   }
 
   const fetchDebugInfo = async () => {
-    try {
-      const response = await fetch("/api/debug/gifts")
-      if (response.ok) {
-        const data = await response.json()
-        setDebugInfo(data)
-        setShowDebug(true)
-      }
-    } catch (error) {
-      console.error("Failed to fetch debug info:", error)
-    }
+    const response = await fetch("/api/debug/gifts")
+    if (response.ok) setDebugGifts((await response.json()).gifts)
   }
 
   const runMigration = async () => {
-    if (!confirm("This will update all existing money gifts to have 'Cash' as the default payment method. Continue?")) {
-      return
-    }
-
-    try {
-      const response = await fetch("/api/migrate-gifts", {
-        method: "POST",
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        toast({
-          title: "Migration Complete",
-          description: `Updated ${result.updatedCount} gifts successfully`,
-        })
-      } else {
-        throw new Error("Migration failed")
-      }
-    } catch (error) {
-      toast({
-        title: "Migration Failed",
-        description: "Migration failed",
-        variant: "destructive",
-      })
+    const response = await fetch("/api/migrate-gifts", { method: "POST" })
+    if (response.ok) {
+      const result = await response.json()
+      toast({ title: t("settings.fixPaymentsDone", { count: result.updatedCount }) })
+    } else {
+      toast({ title: t("common.error"), variant: "destructive" })
     }
   }
 
-  if (status === "loading") {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg">{t("common.loading")}</div>
-        </div>
-      </Layout>
-    )
-  }
+  const themes = [
+    { value: "light", label: t("settings.themeLight"), icon: Sun },
+    { value: "dark", label: t("settings.themeDark"), icon: Moon },
+    { value: "system", label: t("settings.themeSystem"), icon: Monitor },
+  ]
 
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-600 mt-2">
-            {language === "km" ? "គ្រប់គ្រងការកំណត់ និងឧបករណ៍ប្រើប្រាស់" : "Manage settings and tools"}
-          </p>
-        </div>
+        <PageHeader title={t("settings.title")} description={t("settings.subtitle")} />
 
-        {/* Excel Upload Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Upload Guests */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Upload className="w-5 h-5" />
-                <span>{language === "km" ? "នាំចូលភ្ញៀវពី Excel" : "Import Guests from Excel"}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="guests-file">
-                  {language === "km" ? "ជ្រើសរើសឯកសារ Excel ឬ CSV" : "Select Excel or CSV file"}
-                </Label>
-                <Input
-                  id="guests-file"
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={(e) => handleFileUpload(e, "guests")}
-                  disabled={uploading}
-                  className="mt-2"
-                />
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  onClick={() => downloadSample("guests")}
-                  variant="outline"
-                  className="flex items-center space-x-2"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>{language === "km" ? "ទាញយកគំរូ" : "Download Sample"}</span>
-                </Button>
-              </div>
-              <div className="text-sm text-gray-600">
-                <p>{language === "km" ? "ទម្រង់ដែលត្រូវការ:" : "Required format:"}</p>
-                <ul className="list-disc list-inside mt-1">
-                  <li>Name (required)</li>
-                  <li>Phone (optional)</li>
-                  <li>Guest Type: "Groom Side" or "Bride Side"</li>
-                  <li>Notes (optional)</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Upload Gifts */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Upload className="w-5 h-5" />
-                <span>{language === "km" ? "នាំចូលអំណោយពី Excel" : "Import Gifts from Excel"}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="gifts-file">
-                  {language === "km" ? "ជ្រើសរើសឯកសារ Excel ឬ CSV" : "Select Excel or CSV file"}
-                </Label>
-                <Input
-                  id="gifts-file"
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={(e) => handleFileUpload(e, "gifts")}
-                  disabled={uploading}
-                  className="mt-2"
-                />
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  onClick={() => downloadSample("gifts")}
-                  variant="outline"
-                  className="flex items-center space-x-2"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>{language === "km" ? "ទាញយកគំរូ" : "Download Sample"}</span>
-                </Button>
-              </div>
-              <div className="text-sm text-gray-600">
-                <p>{language === "km" ? "ទម្រង់ដែលត្រូវការ:" : "Required format:"}</p>
-                <ul className="list-disc list-inside mt-1">
-                  <li>Guest ID (required)</li>
-                  <li>Type: "money" or "item"</li>
-                  <li>Amount (for money gifts)</li>
-                  <li>Currency: "USD" or "KHR"</li>
-                  <li>Payment Method: "Cash" or "KHQR"</li>
-                  <li>Description (optional)</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Debug and Maintenance Tools */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Bug className="w-5 h-5" />
-              <span>{language === "km" ? "ឧបករណ៍បច្ចេកទេស" : "Developer Tools"}</span>
-            </CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">{t("settings.appearance")}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button onClick={fetchDebugInfo} variant="outline" className="flex items-center space-x-2">
-                <Bug className="w-4 h-4" />
-                <span>Debug Gifts</span>
-              </Button>
-              <Button
-                onClick={runMigration}
-                variant="outline"
-                className="flex items-center space-x-2 bg-yellow-50 hover:bg-yellow-100"
-              >
-                <Database className="w-4 h-4" />
-                <span>Fix Payment Methods</span>
-              </Button>
-              <Button
-                onClick={() => window.location.reload()}
-                variant="outline"
-                className="flex items-center space-x-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>Refresh Page</span>
-              </Button>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">{t("settings.language")}</p>
+              <LanguageSwitcher className="text-sm" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">{t("settings.theme")}</p>
+              <div className="inline-flex rounded-lg border bg-muted/60 p-0.5">
+                {themes.map(({ value, label, icon: Icon }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setTheme(value)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md px-3 py-1 text-sm transition-colors",
+                      theme === value
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="size-3.5" />
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Debug Info Panel */}
-        {showDebug && debugInfo && (
-          <Card className="border-yellow-200 bg-yellow-50">
-            <CardHeader>
-              <CardTitle className="flex justify-between items-center">
-                Debug Information
-                <Button variant="ghost" size="sm" onClick={() => setShowDebug(false)}>
-                  ×
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <p>
-                  <strong>Total Gifts:</strong> {debugInfo.totalGifts}
-                </p>
-                <div className="max-h-60 overflow-y-auto">
+        <div className="grid gap-4 lg:grid-cols-2">
+          {IMPORTS.map(({ type, title, columns, rules }) => {
+            const result = results[type]
+            return (
+              <Card key={type} className="flex flex-col">
+                <CardHeader>
+                  <span className="mb-2 flex size-11 items-center justify-center rounded-xl bg-accent text-primary">
+                    <FileSpreadsheet className="size-5" />
+                  </span>
+                  <CardTitle>{t(title)}</CardTitle>
+                  <CardDescription>{t("settings.chooseFile")}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-1 flex-col gap-4">
+                  <div>
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {t("settings.requiredFormat")}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {columns.map((column) => (
+                        <Badge key={column} variant="outline" className="font-mono text-[11px]">
+                          {column}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                    {rules.map((rule) => (
+                      <li key={rule}>{t(rule)}</li>
+                    ))}
+                  </ul>
+
+                  {result && (
+                    <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+                      <p className="font-medium">
+                        {t("settings.importDone", { success: result.success, total: result.total })}
+                      </p>
+                      {result.errors.length > 0 && (
+                        <ul className="mt-2 max-h-32 space-y-0.5 overflow-y-auto text-xs text-destructive">
+                          {result.errors.map((error) => (
+                            <li key={error}>{error}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-auto flex flex-wrap gap-2">
+                    <Button asChild>
+                      <label className={cn(uploading && "pointer-events-none opacity-60")}>
+                        {uploading === type ? <Loader2 className="animate-spin" /> : <Upload />}
+                        {uploading === type ? t("settings.importing") : t(title)}
+                        <input
+                          type="file"
+                          accept=".csv,.xlsx"
+                          className="sr-only"
+                          disabled={!!uploading}
+                          onChange={(e) => handleFileUpload(e, type)}
+                        />
+                      </label>
+                    </Button>
+                    <Button variant="outline" onClick={() => downloadSample(type)}>
+                      <Download />
+                      {t("settings.downloadSample")}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Wrench className="size-4 text-muted-foreground" />
+              {t("settings.tools")}
+            </CardTitle>
+            <CardDescription>{t("settings.toolsHint")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={fetchDebugInfo}>
+                <Bug />
+                {t("settings.debugGifts")}
+              </Button>
+              <Button variant="outline" onClick={() => setConfirmFix(true)}>
+                <Database />
+                {t("settings.fixPayments")}
+              </Button>
+            </div>
+
+            {debugGifts && (
+              <div className="rounded-xl border">
+                <div className="flex items-center justify-between border-b px-4 py-2.5">
+                  <p className="text-sm font-medium">
+                    {t("settings.debugTitle")} ({debugGifts.length})
+                  </p>
+                  <Button variant="ghost" size="sm" onClick={() => setDebugGifts(null)}>
+                    {t("settings.hide")}
+                  </Button>
+                </div>
+                <div className="max-h-64 overflow-auto">
                   <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-1">Guest</th>
-                        <th className="text-left p-1">Type</th>
-                        <th className="text-left p-1">Payment Method</th>
-                        <th className="text-left p-1">Has PM</th>
-                        <th className="text-left p-1">PM Type</th>
+                    <thead className="bg-muted/50 text-left text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-2 font-medium">{t("gifts.guestName")}</th>
+                        <th className="px-4 py-2 font-medium">{t("gifts.type")}</th>
+                        <th className="px-4 py-2 font-medium">{t("gifts.paymentMethod")}</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {debugInfo.gifts.map((gift: any) => (
-                        <tr key={gift._id} className="border-b">
-                          <td className="p-1">{gift.guestName}</td>
-                          <td className="p-1">{gift.type}</td>
-                          <td className="p-1 font-mono">"{gift.paymentMethod}"</td>
-                          <td className="p-1">{gift.hasPaymentMethod ? "✅" : "❌"}</td>
-                          <td className="p-1">{gift.paymentMethodType}</td>
+                    <tbody className="divide-y">
+                      {debugGifts.map((gift) => (
+                        <tr key={gift._id}>
+                          <td className="px-4 py-2">{gift.guestName}</td>
+                          <td className="px-4 py-2">{gift.type}</td>
+                          <td className="px-4 py-2 font-mono">
+                            {gift.hasPaymentMethod ? (
+                              gift.paymentMethod
+                            ) : gift.type === "money" ? (
+                              <span className="text-destructive">{t("gifts.missing")}</span>
+                            ) : (
+                              "-"
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Upload Status */}
-        {uploading && (
-          <Card className="border-blue-200 bg-blue-50">
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-2">
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>{language === "km" ? "កំពុងនាំចូល..." : "Uploading..."}</span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Instructions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <FileSpreadsheet className="w-5 h-5" />
-              <span>{language === "km" ? "សេចក្តីណែនាំ" : "Instructions"}</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4 text-sm text-gray-600">
-              <div>
-                <h4 className="font-medium text-gray-900 mb-2">
-                  {language === "km" ? "ការនាំចូលភ្ញៀវ:" : "Importing Guests:"}
-                </h4>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>
-                    {language === "km"
-                      ? "ទាញយកឯកសារគំរូដើម្បីមើលទម្រង់ត្រឹមត្រូវ"
-                      : "Download the sample file to see the correct format"}
-                  </li>
-                  <li>
-                    {language === "km" ? "ឈ្មោះភ្ញៀវត្រូវតែមាន និងមិនអាចទទេ" : "Guest names are required and cannot be empty"}
-                  </li>
-                  <li>
-                    {language === "km"
-                      ? "ប្រភេទភ្ញៀវត្រូវតែជា 'Groom Side' ឬ 'Bride Side'"
-                      : "Guest type must be exactly 'Groom Side' or 'Bride Side'"}
-                  </li>
-                  <li>
-                    {language === "km"
-                      ? "ភ្ញៀវដែលមានឈ្មោះដូចគ្នានឹងត្រូវបានរំលង"
-                      : "Guests with duplicate names will be skipped"}
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-medium text-gray-900 mb-2">
-                  {language === "km" ? "ការនាំចូលអំណោយ:" : "Importing Gifts:"}
-                </h4>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>
-                    {language === "km" ? "លេខសម្គាល់ភ្ញៀវត្រូវតែមានស្រាប់ក្នុងប្រព័ន្ធ" : "Guest ID must exist in the system"}
-                  </li>
-                  <li>
-                    {language === "km"
-                      ? "សម្រាប់អំណោយប្រាក់ ចំនួន និងវិធីបង់ប្រាក់ត្រូវតែមាន"
-                      : "For money gifts, amount and payment method are required"}
-                  </li>
-                  <li>{language === "km" ? "រូបិយប័ណ្ណត្រូវតែជា 'USD' ឬ 'KHR'" : "Currency must be 'USD' or 'KHR'"}</li>
-                  <li>
-                    {language === "km" ? "វិធីបង់ប្រាក់ត្រូវតែជា 'Cash' ឬ 'KHQR'" : "Payment method must be 'Cash' or 'KHQR'"}
-                  </li>
-                </ul>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
+
+        <ConfirmDialog
+          open={confirmFix}
+          onOpenChange={setConfirmFix}
+          title={t("settings.fixPayments")}
+          description={t("settings.fixPaymentsConfirm")}
+          confirmLabel={t("common.continue")}
+          destructive={false}
+          onConfirm={runMigration}
+        />
       </div>
     </Layout>
   )

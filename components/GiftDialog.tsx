@@ -1,33 +1,22 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useEffect, useRef, useState } from "react"
+import { Banknote, Check, ImagePlus, Loader2, Package, QrCode, Search, X } from "lucide-react"
+import { ProofImageDialog } from "@/components/ProofImageDialog"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { Upload, Search, X } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import type { Currency, Gift, GiftType, PaymentMethod } from "@/lib/types"
+import { cn } from "@/lib/utils"
 
-interface Guest {
+interface GuestOption {
   guestId: number
   name: string
-}
-
-interface Gift {
-  _id?: string
-  guestId: number
-  guestName: string
-  type: "money" | "item"
-  amount?: number
-  currency?: string
-  paymentMethod?: string
-  description?: string
-  proofImage?: string
 }
 
 interface GiftDialogProps {
@@ -37,229 +26,192 @@ interface GiftDialogProps {
   gift?: Gift | null
 }
 
-export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDialogProps) {
-  const [formData, setFormData] = useState({
-    guestSearch: "",
-    selectedGuest: null as Guest | null,
-    type: "money" as "money" | "item",
-    amount: "",
-    displayAmount: "", // Formatted amount with commas
-    currency: "USD" as "USD" | "KHR",
-    paymentMethod: "Cash" as "Cash" | "KHQR",
-    description: "",
-    proofImage: "",
-  })
+const emptyForm = {
+  guestSearch: "",
+  selectedGuest: null as GuestOption | null,
+  type: "money" as GiftType,
+  amount: "",
+  currency: "USD" as Currency,
+  paymentMethod: "Cash" as PaymentMethod,
+  description: "",
+  proofImage: "",
+}
 
-  // Format number with commas
-  const formatNumberWithCommas = (value: string): string => {
-    // Remove all non-digit characters except decimal point
-    const cleanValue = value.replace(/[^\d.]/g, "")
-    
-    // Split by decimal point
-    const parts = cleanValue.split(".")
-    
-    // Format the integer part with commas
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-    
-    // Join back with decimal if exists
-    return parts.join(".")
-  }
+/** Adds thousands separators while the user types, keeping any decimal part. */
+function formatWithCommas(raw: string) {
+  const [whole, ...rest] = raw.split(".")
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+  return rest.length ? `${grouped}.${rest.join("")}` : grouped
+}
 
-  // Parse formatted number back to raw number string
-  const parseFormattedNumber = (value: string): string => {
-    return value.replace(/,/g, "")
-  }
-
-  // Handle amount change with formatting
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value
-    const rawValue = parseFormattedNumber(inputValue)
-    
-    // Validate that it's a valid number
-    if (rawValue === "" || /^\d*\.?\d*$/.test(rawValue)) {
-      const formattedValue = formatNumberWithCommas(rawValue)
-      setFormData({ 
-        ...formData, 
-        amount: rawValue,
-        displayAmount: formattedValue 
-      })
+/** Shrinks a photo to at most 1200px and re-encodes it as JPEG before upload. */
+function compressImage(file: File, maxSize = 1200, quality = 0.7): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error("Failed to read file"))
+    reader.onload = (event) => {
+      const img = new Image()
+      img.onerror = () => reject(new Error("Failed to load image"))
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / img.width, maxSize / img.height)
+        const canvas = document.createElement("canvas")
+        canvas.width = Math.round(img.width * scale)
+        canvas.height = Math.round(img.height * scale)
+        const ctx = canvas.getContext("2d")
+        if (!ctx) return reject(new Error("Failed to get canvas context"))
+        ctx.imageSmoothingQuality = "high"
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error("Failed to compress image"))),
+          "image/jpeg",
+          quality,
+        )
+      }
+      img.src = event.target?.result as string
     }
-  }
-  const [searchResults, setSearchResults] = useState<Guest[]>([])
+    reader.readAsDataURL(file)
+  })
+}
+
+function ChoiceButton({
+  active,
+  onClick,
+  icon: Icon,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  icon?: typeof Banknote
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className={cn(
+        "flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors",
+        active ? "border-primary bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted",
+      )}
+    >
+      {Icon && <Icon className="size-4" />}
+      {children}
+    </button>
+  )
+}
+
+export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDialogProps) {
+  const { t } = useLanguage()
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{gift ? t("gifts.editGift") : t("gifts.addGift")}</DialogTitle>
+        </DialogHeader>
+        {/* Keyed so the form starts fresh for each gift; Radix unmounts it when closed */}
+        <GiftForm key={gift?._id ?? "new"} gift={gift} onCancel={() => onOpenChange(false)} onSaved={onSaved} />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function GiftForm({ gift, onCancel, onSaved }: { gift?: Gift | null; onCancel: () => void; onSaved: () => void }) {
+  const [formData, setFormData] = useState(() =>
+    gift
+      ? {
+          guestSearch: `${gift.guestId} - ${gift.guestName}`,
+          selectedGuest: { guestId: gift.guestId, name: gift.guestName } as GuestOption | null,
+          type: gift.type,
+          amount: gift.amount?.toString() || "",
+          currency: gift.currency || ("USD" as Currency),
+          paymentMethod: gift.paymentMethod || ("Cash" as PaymentMethod),
+          description: gift.description || "",
+          proofImage: gift.proofImage || "",
+        }
+      : emptyForm,
+  )
+  const [searchResults, setSearchResults] = useState<GuestOption[]>([])
+  const [searching, setSearching] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [compressing, setCompressing] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const { t } = useLanguage()
 
   const isEditing = !!gift
 
-  // Compress and resize image before upload
-  const compressImage = (file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.7): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = (event) => {
-        const img = new Image()
-        img.crossOrigin = "anonymous"
-        img.src = event.target?.result as string
-        img.onload = () => {
-          // Calculate new dimensions while maintaining aspect ratio
-          let { width, height } = img
-          
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width
-            width = maxWidth
-          }
-          if (height > maxHeight) {
-            width = (width * maxHeight) / height
-            height = maxHeight
-          }
-
-          // Create canvas and draw resized image
-          const canvas = document.createElement("canvas")
-          canvas.width = width
-          canvas.height = height
-          
-          const ctx = canvas.getContext("2d")
-          if (!ctx) {
-            reject(new Error("Failed to get canvas context"))
-            return
-          }
-          
-          // Use better image smoothing for quality
-          ctx.imageSmoothingEnabled = true
-          ctx.imageSmoothingQuality = "high"
-          ctx.drawImage(img, 0, 0, width, height)
-
-          // Convert to blob with compression
-          canvas.toBlob(
-            (blob) => {
-              if (blob) {
-                resolve(blob)
-              } else {
-                reject(new Error("Failed to compress image"))
-              }
-            },
-            "image/jpeg",
-            quality
-          )
-        }
-        img.onerror = () => reject(new Error("Failed to load image"))
-      }
-      reader.onerror = () => reject(new Error("Failed to read file"))
-    })
-  }
-
+  // Search guests as the user types
   useEffect(() => {
-    if (open) {
-      if (gift) {
-        // Editing existing gift
-        const amountStr = gift.amount?.toString() || ""
-        setFormData({
-          guestSearch: `${gift.guestId} - ${gift.guestName}`,
-          selectedGuest: { guestId: gift.guestId, name: gift.guestName },
-          type: gift.type,
-          amount: amountStr,
-          displayAmount: formatNumberWithCommas(amountStr),
-          currency: (gift.currency as "USD" | "KHR") || "USD",
-          paymentMethod: (gift.paymentMethod as "Cash" | "KHQR") || "Cash",
-          description: gift.description || "",
-          proofImage: gift.proofImage || "",
-        })
-      } else {
-        // Adding new gift
-        setFormData({
-          guestSearch: "",
-          selectedGuest: null,
-          type: "money",
-          amount: "",
-          displayAmount: "",
-          currency: "USD",
-          paymentMethod: "Cash",
-          description: "",
-          proofImage: "",
-        })
-      }
-      setSearchResults([])
-    }
-  }, [open, gift])
+    // The results list is hidden while no search is active, so stale results need no clearing
+    if (!formData.guestSearch.trim() || formData.selectedGuest) return
 
-  // Search guests as user types
-  useEffect(() => {
-    const searchGuests = async () => {
-      if (formData.guestSearch.length > 0 && !formData.selectedGuest) {
-        try {
-          const response = await fetch(`/api/guests/search?q=${encodeURIComponent(formData.guestSearch)}`)
-          if (response.ok) {
-            const guests = await response.json()
-            setSearchResults(guests)
-          }
-        } catch (error) {
-          console.error("Error searching guests:", error)
-        }
-      } else {
-        setSearchResults([])
+    const controller = new AbortController()
+    const timer = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const response = await fetch(`/api/guests/search?q=${encodeURIComponent(formData.guestSearch)}`, {
+          signal: controller.signal,
+        })
+        if (response.ok) setSearchResults(await response.json())
+      } catch (error) {
+        if (!controller.signal.aborted) console.error("Error searching guests:", error)
+      } finally {
+        if (!controller.signal.aborted) setSearching(false)
       }
-    }
+    }, 250)
 
-    const debounceTimer = setTimeout(searchGuests, 300)
-    return () => clearTimeout(debounceTimer)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
   }, [formData.guestSearch, formData.selectedGuest])
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/,/g, "")
+    if (raw === "" || /^\d*\.?\d*$/.test(raw)) {
+      setFormData((prev) => ({ ...prev, amount: raw }))
+    }
+  }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
+    event.target.value = ""
     if (!file) return
 
-    // Check if it's an image
     if (!file.type.startsWith("image/")) {
-      toast({
-        title: "Error",
-        description: "Please select an image file",
-        variant: "destructive",
-      })
+      toast({ title: t("common.error"), description: t("gifts.imageOnly"), variant: "destructive" })
       return
     }
 
     setCompressing(true)
     setUploading(true)
-    
     try {
-      // Compress the image first
-      const originalSize = (file.size / 1024).toFixed(1)
-      const compressedBlob = await compressImage(file)
-      const compressedSize = (compressedBlob.size / 1024).toFixed(1)
-      
+      const compressed = await compressImage(file)
       setCompressing(false)
-      
-      // Create a new file from the compressed blob
-      const compressedFile = new File([compressedBlob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
-        type: "image/jpeg",
+
+      const upload = new FormData()
+      upload.append("file", new File([compressed], file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" }))
+
+      const response = await fetch("/api/upload", { method: "POST", body: upload })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || t("gifts.uploadFailed"))
+
+      setFormData((prev) => ({ ...prev, proofImage: data.url }))
+      toast({
+        title: t("common.success"),
+        description: t("gifts.imageUploaded", {
+          from: (file.size / 1024).toFixed(0),
+          to: (compressed.size / 1024).toFixed(0),
+        }),
       })
-
-      const formDataUpload = new FormData()
-      formDataUpload.append("file", compressedFile)
-
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formDataUpload,
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setFormData((prev) => ({ ...prev, proofImage: data.url }))
-        toast({
-          title: "Success",
-          description: `Image compressed (${originalSize}KB -> ${compressedSize}KB) and uploaded`,
-        })
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || "Upload failed")
-      }
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to upload image",
+        title: t("common.error"),
+        description: error instanceof Error ? error.message : t("gifts.uploadFailed"),
         variant: "destructive",
       })
     } finally {
@@ -272,67 +224,45 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
     e.preventDefault()
 
     if (!formData.selectedGuest) {
-      toast({
-        title: "Error",
-        description: t("form.selectGuest"),
-        variant: "destructive",
-      })
+      toast({ title: t("common.error"), description: t("gifts.selectGuest"), variant: "destructive" })
       return
     }
 
-    if (formData.type === "money" && (!formData.amount || !formData.paymentMethod)) {
-      toast({
-        title: "Error",
-        description: "Amount and payment method are required for money gifts",
-        variant: "destructive",
-      })
+    if (formData.type === "money" && (!Number(formData.amount) || !formData.paymentMethod)) {
+      toast({ title: t("common.error"), description: t("gifts.amountRequired"), variant: "destructive" })
       return
     }
 
     setLoading(true)
-
     try {
+      const isMoney = formData.type === "money"
       const payload = {
         guestId: formData.selectedGuest.guestId,
         type: formData.type,
-        amount: formData.type === "money" ? Number.parseFloat(formData.amount) : undefined,
-        currency: formData.type === "money" ? formData.currency : undefined,
-        paymentMethod: formData.type === "money" ? formData.paymentMethod : undefined,
+        amount: isMoney ? Number.parseFloat(formData.amount) : undefined,
+        currency: isMoney ? formData.currency : undefined,
+        paymentMethod: isMoney ? formData.paymentMethod : undefined,
         description: formData.description,
         proofImage: formData.proofImage,
       }
 
-      console.log("Submitting payload:", payload) // Debug log
-
-      const url = isEditing ? `/api/gifts/${gift._id}` : "/api/gifts"
-      const method = isEditing ? "PUT" : "POST"
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
+      const response = await fetch(gift ? `/api/gifts/${gift._id}` : "/api/gifts", {
+        method: isEditing ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
 
-      if (response.ok) {
-        const result = await response.json()
-        console.log("Response:", result) // Debug log
-        toast({
-          title: "Success",
-          description: isEditing ? "Gift updated successfully" : "Gift added successfully",
-        })
-        onSaved()
-      } else {
-        const error = await response.json()
-        console.error("API Error:", error) // Debug log
-        throw new Error(error.error || `Failed to ${isEditing ? "update" : "add"} gift`)
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.error || t("gifts.saveFailed"))
       }
+
+      toast({ title: isEditing ? t("gifts.updated") : t("gifts.added") })
+      onSaved()
     } catch (error) {
-      console.error("Submit error:", error) // Debug log
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : `Failed to ${isEditing ? "update" : "add"} gift`,
+        title: t("common.error"),
+        description: error instanceof Error ? error.message : t("gifts.saveFailed"),
         variant: "destructive",
       })
     } finally {
@@ -340,256 +270,226 @@ export default function GiftDialog({ open, onOpenChange, onSaved, gift }: GiftDi
     }
   }
 
-  const handleViewProof = () => {
-    if (formData.proofImage) {
-      // Create a new window to display the image
-      const newWindow = window.open("", "_blank")
-      if (newWindow) {
-        newWindow.document.write(`
-          <html>
-            <head>
-              <title>Proof Image</title>
-              <style>
-                body { 
-                  margin: 0; 
-                  padding: 20px; 
-                  display: flex; 
-                  justify-content: center; 
-                  align-items: center; 
-                  min-height: 100vh; 
-                  background: #f0f0f0; 
-                }
-                img { 
-                  max-width: 100%; 
-                  max-height: 100vh; 
-                  object-fit: contain; 
-                  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-                  border-radius: 8px;
-                }
-              </style>
-            </head>
-            <body>
-              <img src="${formData.proofImage}" alt="Proof Image" />
-            </body>
-          </html>
-        `)
-        newWindow.document.close()
-      }
-    }
-  }
+  const busyUploading = uploading || compressing
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit Gift" : t("gifts.addGift")}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Guest Search */}
-          <div className="space-y-2">
-            <Label htmlFor="guestSearch">{t("search.guestIdOrName")} *</Label>
+    <>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Guest */}
+        <div className="space-y-2">
+          <Label htmlFor="guestSearch">
+            {t("gifts.searchGuest")} <span className="text-destructive">*</span>
+          </Label>
+          {formData.selectedGuest ? (
+            <div className="flex items-center gap-3 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+              <Check className="size-4 text-emerald-600 dark:text-emerald-400" />
+              <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                <span className="text-muted-foreground">#{formData.selectedGuest.guestId}</span>{" "}
+                {formData.selectedGuest.name}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                aria-label={t("common.close")}
+                onClick={() => setFormData({ ...formData, selectedGuest: null, guestSearch: "" })}
+              >
+                <X />
+              </Button>
+            </div>
+          ) : (
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="guestSearch"
                 value={formData.guestSearch}
                 onChange={(e) => setFormData({ ...formData, guestSearch: e.target.value, selectedGuest: null })}
-                placeholder="Enter guest ID or name..."
-                className="pl-10"
+                placeholder={t("gifts.searchGuestPlaceholder")}
+                className="pl-9"
+                autoComplete="off"
+                autoFocus
               />
+              {searching && (
+                <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+              )}
             </div>
+          )}
 
-            {/* Search Results */}
-            {searchResults.length > 0 && (
-              <div className="border rounded-md max-h-32 overflow-y-auto">
-                {searchResults.map((guest) => (
-                  <div
-                    key={guest.guestId}
-                    className="p-2 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
-                    onClick={() => {
-                      setFormData({
-                        ...formData,
-                        selectedGuest: guest,
-                        guestSearch: `${guest.guestId} - ${guest.name}`,
-                      })
-                      setSearchResults([])
-                    }}
-                  >
-                    <div className="font-medium">ID: {guest.guestId}</div>
-                    <div className="text-sm text-gray-600">{guest.name}</div>
-                  </div>
-                ))}
-              </div>
-            )}
+          {!formData.selectedGuest && formData.guestSearch.trim() && (
+            <div className="max-h-44 overflow-y-auto rounded-lg border bg-card">
+              {searchResults.length > 0
+                ? searchResults.map((guest) => (
+                    <button
+                      key={guest.guestId}
+                      type="button"
+                      className="flex w-full items-center gap-3 border-b px-3 py-2 text-left text-sm last:border-b-0 hover:bg-muted"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          selectedGuest: guest,
+                          guestSearch: `${guest.guestId} - ${guest.name}`,
+                        })
+                      }
+                    >
+                      <span className="w-10 shrink-0 tabular-nums text-muted-foreground">#{guest.guestId}</span>
+                      <span className="truncate font-medium">{guest.name}</span>
+                    </button>
+                  ))
+                : !searching && <p className="px-3 py-2.5 text-sm text-muted-foreground">{t("gifts.noGuestMatch")}</p>}
+            </div>
+          )}
+        </div>
 
-            {/* Selected Guest */}
-            {formData.selectedGuest && (
-              <div className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded">
-                <span className="text-green-800">
-                  Selected: {formData.selectedGuest.guestId} - {formData.selectedGuest.name}
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setFormData({ ...formData, selectedGuest: null, guestSearch: "" })}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Gift Type */}
-          <div className="space-y-2">
-            <Label htmlFor="type">{t("gifts.type")} *</Label>
-            <Select
-              value={formData.type}
-              onValueChange={(value: "money" | "item") => setFormData({ ...formData, type: value })}
+        {/* Type */}
+        <div className="space-y-2">
+          <Label>{t("gifts.type")}</Label>
+          <div className="grid grid-cols-2 gap-2" role="radiogroup">
+            <ChoiceButton
+              active={formData.type === "money"}
+              onClick={() => setFormData({ ...formData, type: "money" })}
+              icon={Banknote}
             >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="money">{t("gifts.money")}</SelectItem>
-                <SelectItem value="item">{t("gifts.item")}</SelectItem>
-              </SelectContent>
-            </Select>
+              {t("gifts.money")}
+            </ChoiceButton>
+            <ChoiceButton
+              active={formData.type === "item"}
+              onClick={() => setFormData({ ...formData, type: "item" })}
+              icon={Package}
+            >
+              {t("gifts.item")}
+            </ChoiceButton>
           </div>
+        </div>
 
-          {/* Amount, Currency, and Payment Method (for money gifts) */}
-          {formData.type === "money" && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-2">
-                  <Label htmlFor="amount">{t("gifts.amount")} *</Label>
+        {formData.type === "money" && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="amount">
+                {t("gifts.amount")} <span className="text-destructive">*</span>
+              </Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-lg text-muted-foreground">
+                    {formData.currency === "USD" ? "$" : "៛"}
+                  </span>
                   <Input
                     id="amount"
                     type="text"
                     inputMode="decimal"
-                    value={formData.displayAmount}
+                    value={formatWithCommas(formData.amount)}
                     onChange={handleAmountChange}
                     placeholder="0"
                     required
-                    className="text-right font-mono text-lg"
+                    className="h-12 pl-8 text-right text-xl font-semibold tabular-nums md:text-xl"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="currency">{t("form.currency")}</Label>
-                  <Select
-                    value={formData.currency}
-                    onValueChange={(value: "USD" | "KHR") => setFormData({ ...formData, currency: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="USD">USD ($)</SelectItem>
-                      <SelectItem value="KHR">KHR (៛)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div
+                  className="grid w-28 grid-cols-2 gap-1 rounded-lg border bg-muted/60 p-1"
+                  role="radiogroup"
+                  aria-label={t("gifts.currency")}
+                >
+                  {(["USD", "KHR"] as Currency[]).map((currency) => (
+                    <button
+                      key={currency}
+                      type="button"
+                      role="radio"
+                      aria-checked={formData.currency === currency}
+                      onClick={() => setFormData({ ...formData, currency })}
+                      className={cn(
+                        "rounded-md text-xs font-semibold transition-colors",
+                        formData.currency === currency ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
+                      )}
+                    >
+                      {currency}
+                    </button>
+                  ))}
                 </div>
               </div>
-
-              {/* Payment Method */}
-              <div className="space-y-2">
-                <Label htmlFor="paymentMethod">{t("form.paymentMethod")} *</Label>
-                <Select
-                  value={formData.paymentMethod}
-                  onValueChange={(value: "Cash" | "KHQR") => setFormData({ ...formData, paymentMethod: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Cash">{t("form.cash")}</SelectItem>
-                    <SelectItem value="KHQR">{t("form.khqr")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
-          )}
 
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">{t("gifts.description")}</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={3}
-            />
-          </div>
-
-          {/* Proof Image Upload */}
-          <div className="space-y-2">
-            <Label htmlFor="proofImage">{t("form.proofImage")}</Label>
             <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  disabled={uploading}
-                  className="hidden"
-                  id="file-upload"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => document.getElementById("file-upload")?.click()}
-                  disabled={uploading || compressing}
-                  className="flex items-center space-x-2"
+              <Label>
+                {t("gifts.paymentMethod")} <span className="text-destructive">*</span>
+              </Label>
+              <div className="grid grid-cols-2 gap-2" role="radiogroup">
+                <ChoiceButton
+                  active={formData.paymentMethod === "Cash"}
+                  onClick={() => setFormData({ ...formData, paymentMethod: "Cash" })}
+                  icon={Banknote}
                 >
-                  <Upload className="w-4 h-4" />
-                  <span>
-                    {compressing 
-                      ? t("form.compressing") 
-                      : uploading 
-                        ? t("form.uploading") 
-                        : t("form.uploadImage")}
-                  </span>
-                </Button>
-                {formData.proofImage && (
-                  <Button type="button" variant="outline" onClick={handleViewProof}>
-                    View Image
-                  </Button>
-                )}
+                  {t("gifts.cash")}
+                </ChoiceButton>
+                <ChoiceButton
+                  active={formData.paymentMethod === "KHQR"}
+                  onClick={() => setFormData({ ...formData, paymentMethod: "KHQR" })}
+                  icon={QrCode}
+                >
+                  {t("gifts.khqr")}
+                </ChoiceButton>
               </div>
-
-              {/* Image Preview */}
-              {formData.proofImage && (
-                <div className="relative">
-                  <img
-                    src={formData.proofImage || "/placeholder.svg"}
-                    alt="Proof"
-                    className="w-full h-32 object-cover rounded border cursor-pointer"
-                    onClick={handleViewProof}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-1 right-1 bg-white/80"
-                    onClick={() => setFormData({ ...formData, proofImage: "" })}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
             </div>
-          </div>
+          </>
+        )}
 
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              {t("form.cancel")}
-            </Button>
-            <Button type="submit" disabled={loading || !formData.selectedGuest}>
-              {loading ? (isEditing ? "Updating..." : "Saving...") : isEditing ? "Update" : t("form.save")}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+        <div className="space-y-2">
+          <Label htmlFor="description">{t("gifts.description")}</Label>
+          <Textarea
+            id="description"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            rows={2}
+          />
+        </div>
+
+        {/* Proof image */}
+        <div className="space-y-2">
+          <Label>{t("gifts.proofImage")}</Label>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+          {formData.proofImage ? (
+            <div className="relative overflow-hidden rounded-lg border">
+              {/* eslint-disable-next-line @next/next/no-img-element -- proof images are inline data URLs */}
+              <img
+                src={formData.proofImage}
+                alt={t("gifts.proofImage")}
+                className="h-36 w-full cursor-zoom-in object-cover"
+                onClick={() => setPreviewOpen(true)}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                className="absolute right-2 top-2 size-8 bg-card/90 backdrop-blur"
+                aria-label={t("common.delete")}
+                onClick={() => setFormData({ ...formData, proofImage: "" })}
+              >
+                <X />
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={busyUploading}
+              className="flex w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed px-4 py-5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent/40 disabled:opacity-60"
+            >
+              {busyUploading ? <Loader2 className="size-5 animate-spin" /> : <ImagePlus className="size-5" />}
+              {compressing ? t("gifts.compressing") : uploading ? t("gifts.uploading") : t("gifts.uploadImage")}
+            </button>
+          )}
+        </div>
+
+        <DialogFooter className="pt-1">
+          <Button type="button" variant="outline" onClick={onCancel}>
+            {t("form.cancel")}
+          </Button>
+          <Button type="submit" disabled={loading || busyUploading || !formData.selectedGuest}>
+            {loading && <Loader2 className="animate-spin" />}
+            {loading ? t("form.saving") : isEditing ? t("form.update") : t("form.save")}
+          </Button>
+        </DialogFooter>
+      </form>
+      <ProofImageDialog src={previewOpen ? formData.proofImage : null} onOpenChange={setPreviewOpen} />
+    </>
   )
 }

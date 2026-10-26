@@ -1,20 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { escapeRegex, getUserId, serverError, unauthorized } from "@/lib/api"
 import connectDB from "@/lib/mongodb"
 import Gift from "@/lib/models/Gift"
 import Guest from "@/lib/models/Guest"
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: RouteContext<"/api/gifts/[id]">) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const userId = await getUserId()
+    if (!userId) return unauthorized()
 
+    const { id } = await params
     const { guestId, type, amount, currency, paymentMethod, description, proofImage } = await request.json()
-
-    console.log("Updating gift with data:", { guestId, type, amount, currency, paymentMethod, description })
 
     if (!guestId || !type) {
       return NextResponse.json({ error: "Guest ID and type are required" }, { status: 400 })
@@ -26,70 +22,60 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     await connectDB()
 
-    // Get guest name by ID or name search
-    let guest
-    if (Number.isInteger(Number(guestId))) {
-      // Search by ID
-      guest = await Guest.findOne({ guestId: Number(guestId), userId: session.user.id })
-    } else {
-      // Search by name
-      guest = await Guest.findOne({
-        name: { $regex: guestId, $options: "i" },
-        userId: session.user.id,
-      })
-    }
+    // guestId is normally numeric; a name is accepted as a fallback
+    const guest = Number.isInteger(Number(guestId))
+      ? await Guest.findOne({ guestId: Number(guestId), userId })
+      : await Guest.findOne({ name: { $regex: escapeRegex(String(guestId)), $options: "i" }, userId })
 
     if (!guest) {
       return NextResponse.json({ error: "Guest not found" }, { status: 404 })
     }
 
-    const updateData = {
+    const set: Record<string, unknown> = {
       guestId: guest.guestId,
       guestName: guest.name,
       type,
-      description,
-      proofImage,
+      description: description || undefined,
+      proofImage: proofImage || undefined,
     }
+    const unset: Record<string, ""> = {}
 
-    // Handle money-specific fields
     if (type === "money") {
-      updateData.amount = amount
-      updateData.currency = currency || "USD"
-      updateData.paymentMethod = paymentMethod
+      set.amount = Number(amount)
+      set.currency = currency || "USD"
+      set.paymentMethod = paymentMethod
     } else {
-      // If changing from money to item, remove money-specific fields
-      updateData.amount = undefined
-      updateData.currency = undefined
-      updateData.paymentMethod = undefined
+      // Switching from money to item clears the money-only fields
+      unset.amount = ""
+      unset.currency = ""
+      unset.paymentMethod = ""
     }
 
-    console.log("Final update data:", updateData)
-
-    const gift = await Gift.findOneAndUpdate({ _id: params.id, userId: session.user.id }, updateData, { new: true })
+    const gift = await Gift.findOneAndUpdate(
+      { _id: id, userId },
+      { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) },
+      { returnDocument: "after" },
+    )
 
     if (!gift) {
       return NextResponse.json({ error: "Gift not found" }, { status: 404 })
     }
 
-    console.log("Updated gift:", JSON.stringify(gift, null, 2))
-
     return NextResponse.json(gift)
   } catch (error) {
-    console.error("Update gift error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return serverError("Update gift error", error)
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_request: NextRequest, { params }: RouteContext<"/api/gifts/[id]">) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const userId = await getUserId()
+    if (!userId) return unauthorized()
 
+    const { id } = await params
     await connectDB()
 
-    const gift = await Gift.findOneAndDelete({ _id: params.id, userId: session.user.id })
+    const gift = await Gift.findOneAndDelete({ _id: id, userId })
 
     if (!gift) {
       return NextResponse.json({ error: "Gift not found" }, { status: 404 })
@@ -97,7 +83,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     return NextResponse.json({ message: "Gift deleted successfully" })
   } catch (error) {
-    console.error("Delete gift error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return serverError("Delete gift error", error)
   }
 }

@@ -1,24 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getUserId, serverError, unauthorized } from "@/lib/api"
 import connectDB from "@/lib/mongodb"
 import Guest from "@/lib/models/Guest"
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: RouteContext<"/api/guests/[id]">) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const userId = await getUserId()
+    if (!userId) return unauthorized()
 
+    const { id } = await params
     const { name, phone, guestType, notes } = await request.json()
+
+    if (!name?.trim() || !guestType) {
+      return NextResponse.json({ error: "Name and guest type are required" }, { status: 400 })
+    }
 
     await connectDB()
 
     const guest = await Guest.findOneAndUpdate(
-      { _id: params.id, userId: session.user.id },
-      { name, phone: phone || undefined, guestType, notes },
-      { new: true },
+      { _id: id, userId },
+      { name: name.trim(), phone: phone?.trim() || undefined, guestType, notes: notes?.trim() || undefined },
+      { returnDocument: "after" },
     )
 
     if (!guest) {
@@ -27,24 +29,19 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     return NextResponse.json(guest)
   } catch (error) {
-    console.error("Update guest error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return serverError("Update guest error", error)
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_request: NextRequest, { params }: RouteContext<"/api/guests/[id]">) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const userId = await getUserId()
+    if (!userId) return unauthorized()
 
+    const { id } = await params
     await connectDB()
 
-    const guest = await Guest.findOneAndDelete({
-      _id: params.id,
-      userId: session.user.id,
-    })
+    const guest = await Guest.findOneAndDelete({ _id: id, userId })
 
     if (!guest) {
       return NextResponse.json({ error: "Guest not found" }, { status: 404 })
@@ -52,7 +49,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     return NextResponse.json({ message: "Guest deleted successfully" })
   } catch (error) {
-    console.error("Delete guest error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return serverError("Delete guest error", error)
   }
 }

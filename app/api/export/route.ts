@@ -1,117 +1,86 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getUserId, serverError, unauthorized } from "@/lib/api"
+import { giftTypeLabel, guestSideLabel, type Language, paymentMethodLabel } from "@/lib/i18n"
 import connectDB from "@/lib/mongodb"
-import Guest from "@/lib/models/Guest"
 import Gift from "@/lib/models/Gift"
+import Guest from "@/lib/models/Guest"
+
+const HEADERS: Record<"guests" | "gifts", Record<Language, string[]>> = {
+  guests: {
+    en: ["Guest ID", "Name", "Phone", "Guest Type", "Notes"],
+    km: ["លេខសម្គាល់ភ្ញៀវ", "ឈ្មោះ", "លេខទូរស័ព្ទ", "ភ្ញៀវខាង", "កំណត់ចំណាំ"],
+  },
+  gifts: {
+    en: ["Guest ID", "Guest Name", "Type", "Amount", "Currency", "Payment Method", "Description", "Date"],
+    km: [
+      "លេខសម្គាល់ភ្ញៀវ",
+      "ឈ្មោះភ្ញៀវ",
+      "ប្រភេទ",
+      "ចំនួនទឹកប្រាក់",
+      "រូបិយប័ណ្ណ",
+      "វិធីបង់ប្រាក់",
+      "ការពិពណ៌នា",
+      "កាលបរិច្ឆេទ",
+    ],
+  },
+}
+
+function toCsvCell(value: unknown) {
+  const text = value === undefined || value === null ? "" : String(value)
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const userId = await getUserId()
+    if (!userId) return unauthorized()
 
-    const { searchParams } = new URL(request.url)
-    const type = searchParams.get("type") // 'guests' or 'gifts'
-    const format = searchParams.get("format") // 'csv' or 'xlsx'
-    const status = searchParams.get("status") // for filtering guests
-    const language = searchParams.get("language") || "en" // language preference
+    const { searchParams } = request.nextUrl
+    const type = searchParams.get("type") === "gifts" ? "gifts" : "guests"
+    const status = searchParams.get("status")
+    const language: Language = searchParams.get("language") === "km" ? "km" : "en"
 
     await connectDB()
 
-    let data: any[] = []
-    let headers: string[] = []
-
-    // Define headers based on language
-    const getHeaders = (type: string, lang: string) => {
-      if (type === "guests") {
-        return lang === "km"
-          ? ["លេខសម្គាល់ភ្ញៀវ", "ឈ្មោះ", "ទូរស័ព្ទ", "ប្រភេទភ្ញៀវ", "កំណត់ចំណាំ"]
-          : ["Guest ID", "Name", "Phone", "Guest Type", "Notes"]
-      } else {
-        return lang === "km"
-          ? ["លេខសម្គាល់ភ្ញៀវ", "ឈ្មោះភ្ញៀវ", "ប្រភេទ", "ចំនួន", "រូបិយប័ណ្ណ", "វិធីបង់ប្រាក់", "ការពិពណ៌នា", "កាលបរិច្ឆេទ"]
-          : ["Guest ID", "Guest Name", "Type", "Amount", "Currency", "Payment Method", "Description", "Date"]
-      }
-    }
-
-    headers = getHeaders(type, language)
+    let rows: unknown[][]
 
     if (type === "guests") {
-      const query: any = { userId: session.user.id }
-      if (status && status !== "all") {
-        query.guestType = status
-      }
+      const query: Record<string, unknown> = { userId }
+      if (status && status !== "all") query.guestType = status
 
       const guests = await Guest.find(query).sort({ guestId: 1 })
-      data = guests.map((guest) => {
-        const guestType =
-          language === "km" ? (guest.guestType === "Groom Side" ? "ភាគីកូនប្រុស" : "ភាគីកូនស្រី") : guest.guestType
-
-        return [guest.guestId, guest.name, guest.phone || "", guestType, guest.notes || ""]
-      })
-    } else if (type === "gifts") {
-      const gifts = await Gift.find({ userId: session.user.id }).sort({ createdAt: -1 })
-      data = gifts.map((gift) => {
-        const giftType = language === "km" ? (gift.type === "money" ? "ប្រាក់" : "របស់") : gift.type
-
-        const paymentMethod =
-          gift.paymentMethod && language === "km"
-            ? gift.paymentMethod === "Cash"
-              ? "សាច់ប្រាក់"
-              : "KHQR"
-            : gift.paymentMethod || ""
-
-        return [
-          gift.guestId,
-          gift.guestName,
-          giftType,
-          gift.amount || "",
-          gift.currency || "",
-          paymentMethod,
-          gift.description || "",
-          gift.createdAt.toISOString().split("T")[0],
-        ]
-      })
+      rows = guests.map((guest) => [
+        guest.guestId,
+        guest.name,
+        guest.phone,
+        language === "km" ? guestSideLabel(language, guest.guestType) : guest.guestType,
+        guest.notes,
+      ])
+    } else {
+      const gifts = await Gift.find({ userId }).sort({ createdAt: -1 })
+      rows = gifts.map((gift) => [
+        gift.guestId,
+        gift.guestName,
+        language === "km" ? giftTypeLabel(language, gift.type) : gift.type,
+        gift.amount,
+        gift.currency,
+        paymentMethodLabel(language, gift.paymentMethod),
+        gift.description,
+        gift.createdAt.toISOString().split("T")[0],
+      ])
     }
 
-    if (format === "csv") {
-      // Create CSV with proper UTF-8 encoding for Unicode support
-      const csvContent = [
-        headers.join(","),
-        ...data.map((row) =>
-          row
-            .map((cell) => {
-              // Convert to string and handle Unicode properly
-              const cellStr = String(cell || "")
-              // Escape commas, quotes, and newlines
-              if (cellStr.includes(",") || cellStr.includes('"') || cellStr.includes("\n") || cellStr.includes("\r")) {
-                return `"${cellStr.replace(/"/g, '""')}"`
-              }
-              return cellStr
-            })
-            .join(","),
-        ),
-      ].join("\r\n") // Use Windows line endings for better Excel compatibility
+    const csv = [HEADERS[type][language], ...rows].map((row) => row.map(toCsvCell).join(",")).join("\r\n")
 
-      // Add UTF-8 BOM for proper Unicode display in Excel and other applications
-      const utf8BOM = "\uFEFF"
-      const csvWithBOM = utf8BOM + csvContent
-
-      return new NextResponse(csvWithBOM, {
-        headers: {
-          "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(type)}-export.csv`,
-          "Cache-Control": "no-cache",
-        },
-      })
-    }
-
-    // Return JSON data for other formats
-    return NextResponse.json({ headers, data })
+    // UTF-8 BOM so Excel shows Khmer text correctly
+    return new NextResponse("﻿" + csv, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename*=UTF-8''${type}-export.csv`,
+        "Cache-Control": "no-cache",
+      },
+    })
   } catch (error) {
-    console.error("Export error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return serverError("Export error", error)
   }
 }

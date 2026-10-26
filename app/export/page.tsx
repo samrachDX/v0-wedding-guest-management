@@ -1,183 +1,99 @@
 "use client"
 
 import { useState } from "react"
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { Download, FileText, Gift, Loader2, Users } from "lucide-react"
 import Layout from "@/components/Layout"
+import { PageHeader } from "@/components/PageHeader"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { Download, FileText, Users, Gift } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { downloadFile } from "@/lib/download"
 
 export default function ExportPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-  const [loading, setLoading] = useState(false)
+  const [exporting, setExporting] = useState<"guests" | "gifts" | null>(null)
   const [guestFilter, setGuestFilter] = useState("all")
   const { toast } = useToast()
   const { t, language } = useLanguage()
 
-  if (status === "unauthenticated") {
-    router.push("/login")
-    return null
-  }
-
-  const handleExport = async (type: "guests" | "gifts", format: "csv" = "csv") => {
-    setLoading(true)
+  const handleExport = async (type: "guests" | "gifts") => {
+    setExporting(type)
     try {
-      const params = new URLSearchParams({
-        type,
-        format,
-        language, // Pass current language to API
-      })
+      const params = new URLSearchParams({ type, format: "csv", language })
+      if (type === "guests" && guestFilter !== "all") params.append("status", guestFilter)
 
-      if (type === "guests" && guestFilter !== "all") {
-        params.append("status", guestFilter)
-      }
-
-      const response = await fetch(`/api/export?${params}`)
-
-      if (response.ok) {
-        if (format === "csv") {
-          const blob = await response.blob()
-          const url = window.URL.createObjectURL(blob)
-          const a = document.createElement("a")
-          a.href = url
-          a.download = `${type}-export.csv`
-          document.body.appendChild(a)
-          a.click()
-          window.URL.revokeObjectURL(url)
-          document.body.removeChild(a)
-        }
-
-        toast({
-          title: t("common.success"),
-          description: `${type} exported successfully`,
-        })
-      } else {
-        throw new Error("Export failed")
-      }
-    } catch (error) {
-      toast({
-        title: t("common.error"),
-        description: "Failed to export data",
-        variant: "destructive",
-      })
+      await downloadFile(`/api/export?${params}`, `${type}-export.csv`)
+      toast({ title: t("export.success") })
+    } catch {
+      toast({ title: t("common.error"), description: t("export.failed"), variant: "destructive" })
     } finally {
-      setLoading(false)
+      setExporting(null)
     }
-  }
-
-  if (status === "loading") {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg">{t("common.loading")}</div>
-        </div>
-      </Layout>
-    )
   }
 
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t("export.title")}</h1>
-          <p className="text-gray-600 mt-2">
-            {language === "km" ? "នាំចេញទិន្នន័យភ្ញៀវ និងអំណោយទៅជាឯកសារ CSV" : "Export guest and gift data to CSV files"}
-          </p>
-        </div>
+        <PageHeader title={t("export.title")} description={t("export.subtitle")} />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Export Guests */}
-          <Card>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="flex flex-col">
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Users className="w-5 h-5" />
-                <span>{t("export.guests")}</span>
-              </CardTitle>
+              <span className="mb-2 flex size-11 items-center justify-center rounded-xl bg-accent text-primary">
+                <Users className="size-5" />
+              </span>
+              <CardTitle>{t("export.guests")}</CardTitle>
+              <CardDescription>{t("export.guestsHint")}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  {language === "km" ? "តម្រងតាមប្រភេទភ្ញៀវ" : "Filter by guest type"}
-                </label>
-                <Select value={guestFilter} onValueChange={setGuestFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{language === "km" ? "ភ្ញៀវទាំងអស់" : "All Guests"}</SelectItem>
-                    <SelectItem value="Groom Side">{language === "km" ? "ភាគីកូនប្រុស" : "Groom Side"}</SelectItem>
-                    <SelectItem value="Bride Side">{language === "km" ? "ភាគីកូនស្រី" : "Bride Side"}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                onClick={() => handleExport("guests", "csv")}
-                disabled={loading}
-                className="w-full flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>{loading ? t("common.loading") : `${t("export.csv")} ${t("export.guests")}`}</span>
+            <CardContent className="mt-auto space-y-3">
+              <Select value={guestFilter} onValueChange={setGuestFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("guests.allGuests")}</SelectItem>
+                  <SelectItem value="Groom Side">{t("side.groom")}</SelectItem>
+                  <SelectItem value="Bride Side">{t("side.bride")}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={() => handleExport("guests")} disabled={!!exporting} className="w-full">
+                {exporting === "guests" ? <Loader2 className="animate-spin" /> : <Download />}
+                {t("export.download")}
               </Button>
             </CardContent>
           </Card>
 
-          {/* Export Gifts */}
-          <Card>
+          <Card className="flex flex-col">
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Gift className="w-5 h-5" />
-                <span>{t("export.gifts")}</span>
-              </CardTitle>
+              <span className="mb-2 flex size-11 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                <Gift className="size-5" />
+              </span>
+              <CardTitle>{t("export.gifts")}</CardTitle>
+              <CardDescription>{t("export.giftsHint")}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-600">
-                  {language === "km" ? "នាំចេញអំណោយទាំងអស់រួមទាំងប្រាក់ និងរបស់" : "Export all gifts including money and items"}
-                </p>
-              </div>
-              <Button
-                onClick={() => handleExport("gifts", "csv")}
-                disabled={loading}
-                className="w-full flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>{loading ? t("common.loading") : `${t("export.csv")} ${t("export.gifts")}`}</span>
+            <CardContent className="mt-auto">
+              <Button onClick={() => handleExport("gifts")} disabled={!!exporting} className="w-full">
+                {exporting === "gifts" ? <Loader2 className="animate-spin" /> : <Download />}
+                {t("export.download")}
               </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* Export Info */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <FileText className="w-5 h-5" />
-              <span>{language === "km" ? "ព័ត៌មានអំពីការនាំចេញ" : "Export Information"}</span>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="size-4 text-muted-foreground" />
+              {t("export.infoTitle")}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 text-sm text-gray-600">
-              <p>
-                {language === "km"
-                  ? "• ឯកសារ CSV អាចបើកបានក្នុង Microsoft Excel, Google Sheets, និងកម្មវិធីផ្សេងទៀត"
-                  : "• CSV files can be opened in Microsoft Excel, Google Sheets, and other applications"}
-              </p>
-              <p>
-                {language === "km"
-                  ? "• ទិន្នន័យនឹងត្រូវបានកូដជា UTF-8 ដើម្បីគាំទ្រអក្សរខ្មែរ"
-                  : "• Data is encoded in UTF-8 to support Unicode characters including Khmer"}
-              </p>
-              <p>
-                {language === "km"
-                  ? "• ការនាំចេញនឹងរួមបញ្ចូលទិន្នន័យទាំងអស់ដែលអ្នកមានសិទ្ធិចូលប្រើ"
-                  : "• Exports include all data you have access to"}
-              </p>
-            </div>
+            <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
+              <li>{t("export.info1")}</li>
+              <li>{t("export.info2")}</li>
+              <li>{t("export.info3")}</li>
+            </ul>
           </CardContent>
         </Card>
       </div>
