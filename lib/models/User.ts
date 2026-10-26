@@ -15,6 +15,17 @@ const UserSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    // "admin" accounts can manage other users. Older accounts have no role and count as "user".
+    role: {
+      type: String,
+      enum: ["admin", "user"],
+      default: "user",
+    },
+    // Disabled accounts cannot sign in or use the API
+    active: {
+      type: Boolean,
+      default: true,
+    },
     language: {
       type: String,
       default: "en",

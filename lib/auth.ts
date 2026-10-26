@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import connectDB from "./mongodb"
 import User from "./models/User"
+import { resolveRole } from "./roles"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -23,7 +24,7 @@ export const authOptions: NextAuthOptions = {
         const email = credentials.email.trim()
         const user = await User.findOne({ email: { $in: [email, email.toLowerCase()] } })
 
-        if (!user) {
+        if (!user || user.active === false) {
           return null
         }
 
@@ -52,11 +53,31 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
       }
+      // Re-read role and status so admin changes apply without signing out
+      if (token.id) {
+        await connectDB()
+        const current = await User.findById(token.id).select("name email role active").lean<{
+          name: string
+          email: string
+          role?: string
+          active?: boolean
+        }>()
+        if (!current || current.active === false) {
+          token.disabled = true
+        } else {
+          token.disabled = false
+          token.name = current.name
+          token.email = current.email
+          token.role = resolveRole(current)
+        }
+      }
       return token
     },
     async session({ session, token }) {
       if (token) {
         session.user.id = token.id as string
+        session.user.role = (token.role as "admin" | "user") ?? "user"
+        session.user.disabled = !!token.disabled
       }
       return session
     },

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { signIn } from "next-auth/react"
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useLanguage } from "@/contexts/LanguageContext"
+import { useRegistrationOpen } from "@/hooks/use-registration-open"
 import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
@@ -20,6 +21,14 @@ export default function LoginPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { t } = useLanguage()
+  const registrationOpen = useRegistrationOpen()
+  const [disabledNotice, setDisabledNotice] = useState(false)
+
+  useEffect(() => {
+    // Set when a disabled account is signed out by the app shell
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads the URL once after mount
+    setDisabledNotice(new URLSearchParams(window.location.search).get("error") === "disabled")
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,14 +55,21 @@ export default function LoginPage() {
       title={t("auth.signInTitle")}
       subtitle={t("auth.signInSubtitle")}
       footer={
-        <>
-          {t("auth.noAccount")}{" "}
-          <Link href="/register" className="font-medium text-primary hover:underline">
-            {t("auth.registerLink")}
-          </Link>
-        </>
+        registrationOpen ? (
+          <>
+            {t("auth.noAccount")}{" "}
+            <Link href="/register" className="font-medium text-primary hover:underline">
+              {t("auth.registerLink")}
+            </Link>
+          </>
+        ) : null
       }
     >
+      {disabledNotice && (
+        <p className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+          {t("auth.disabled")}
+        </p>
+      )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">{t("auth.email")}</Label>
