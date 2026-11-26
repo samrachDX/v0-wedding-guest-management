@@ -28,7 +28,8 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
             <span className="font-semibold">{t("app.name")}</span>
           </div>
           <div className="max-w-md">
-            <p className="text-4xl font-semibold leading-snug">{t("app.tagline")}</p>
+            {/* eslint-disable-next-line @next/next/no-img-element -- animated SVG; next/image would not keep the animation */}
+            <img src="/couple-bears.svg" alt="" className="mx-auto h-96 w-auto drop-shadow-xl" />
             <div className="mt-8 grid grid-cols-3 gap-3 text-sm text-white/85">
               <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">{t("nav.guests")}</div>
               <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">{t("nav.gifts")}</div>
@@ -53,6 +54,8 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
         </div>
         <div className="flex flex-1 items-center justify-center px-4 pb-16 sm:px-6">
           <div className="w-full max-w-sm">
+            {/* eslint-disable-next-line @next/next/no-img-element -- animated SVG; next/image would not keep the animation */}
+            <img src="/couple-bears.svg" alt="" className="mx-auto mb-4 h-40 w-auto lg:hidden" />
             <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
             <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>
             <div className="mt-8">{children}</div>
