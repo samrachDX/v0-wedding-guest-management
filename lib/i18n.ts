@@ -77,6 +77,16 @@ const en = {
   "auth.invalidCredentials": "Incorrect email or password",
   "auth.signedIn": "Signed in successfully",
   "auth.accountCreated": "Account created. Please sign in.",
+  "reset.title": "Reset admin password",
+  "reset.subtitle": "Enter the secret phrase you set in Vercel, your email and a new password. Your account will also be made admin.",
+  "reset.offTitle": "Admin reset is turned off",
+  "reset.offHint": "Set ADMIN_RESET_SECRET in Vercel and redeploy to use this page.",
+  "reset.secret": "Secret phrase",
+  "reset.newPassword": "New password",
+  "reset.confirm": "Confirm new password",
+  "reset.mismatch": "The two passwords don't match",
+  "reset.submit": "Reset password",
+  "reset.done": "Password reset. Sign in with your new password.",
 
   // Dashboard
   "dashboard.title": "Wedding Dashboard",
@@ -351,6 +361,16 @@ const km: Record<TranslationKey, string> = {
   "auth.invalidCredentials": "អ៊ីមែល ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ",
   "auth.signedIn": "បានចូលគណនីដោយជោគជ័យ",
   "auth.accountCreated": "បានបង្កើតគណនីរួចរាល់។ សូមចូលគណនី។",
+  "reset.title": "កំណត់ពាក្យសម្ងាត់អ្នកគ្រប់គ្រងឡើងវិញ",
+  "reset.subtitle": "បញ្ចូលឃ្លាសម្ងាត់ដែលអ្នកបានកំណត់ក្នុង Vercel អ៊ីមែលរបស់អ្នក និងពាក្យសម្ងាត់ថ្មី។ គណនីរបស់អ្នកក៏នឹងក្លាយជាអ្នកគ្រប់គ្រងផងដែរ។",
+  "reset.offTitle": "ការកំណត់ឡើងវិញត្រូវបានបិទ",
+  "reset.offHint": "កំណត់ ADMIN_RESET_SECRET ក្នុង Vercel ហើយ Redeploy ដើម្បីប្រើទំព័រនេះ។",
+  "reset.secret": "ឃ្លាសម្ងាត់",
+  "reset.newPassword": "ពាក្យសម្ងាត់ថ្មី",
+  "reset.confirm": "បញ្ជាក់ពាក្យសម្ងាត់ថ្មី",
+  "reset.mismatch": "ពាក្យសម្ងាត់ទាំងពីរមិនដូចគ្នាទេ",
+  "reset.submit": "កំណត់ពាក្យសម្ងាត់ឡើងវិញ",
+  "reset.done": "បានកំណត់ពាក្យសម្ងាត់ឡើងវិញ។ សូមចូលគណនីដោយប្រើពាក្យសម្ងាត់ថ្មី។",
 
   // Dashboard
   "dashboard.title": "ផ្ទាំងគ្រប់គ្រងអាពាហ៍ពិពាហ៍",
