@@ -3,7 +3,6 @@ export type Language = "en" | "km"
 const en = {
   // App
   "app.name": "Wedding Guest System",
-  "app.tagline": "Guests, gifts and blessings in one place",
 
   // Navigation
   "nav.dashboard": "Dashboard",
@@ -287,7 +286,6 @@ export type TranslationKey = keyof typeof en
 const km: Record<TranslationKey, string> = {
   // App
   "app.name": "ប្រព័ន្ធគ្រប់គ្រងភ្ញៀវអាពាហ៍ពិពាហ៍",
-  "app.tagline": "ភ្ញៀវ ចំណងដៃ និងពរជ័យ នៅកន្លែងតែមួយ",
 
   // Navigation
   "nav.dashboard": "ផ្ទាំងគ្រប់គ្រង",
