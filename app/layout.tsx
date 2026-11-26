@@ -17,7 +17,6 @@ export const metadata: Metadata = {
   description: "Manage wedding guests, gifts, and attendance",
   applicationName: "Wedding Guest System",
   appleWebApp: { capable: true, title: "Wedding Guests", statusBarStyle: "default" },
-  icons: { apple: "/apple-icon.png" },
 }
 
 export const viewport: Viewport = {
